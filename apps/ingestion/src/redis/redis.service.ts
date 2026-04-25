@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import Redis from 'ioredis'
 
 const IDEMPOTENCY_TTL_SECONDS = 86400 // 24 hours
@@ -8,9 +9,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name)
   private client!: Redis
 
+  constructor(private readonly config: ConfigService) {}
+
   onModuleInit() {
-    const url = process.env.REDIS_PERSISTENT_URL
-    if (!url) throw new Error('REDIS_PERSISTENT_URL is required')
+    const url = this.config.get<string>('REDIS_PERSISTENT_URL')!
 
     this.client = new Redis(url, {
       maxRetriesPerRequest: 3,
