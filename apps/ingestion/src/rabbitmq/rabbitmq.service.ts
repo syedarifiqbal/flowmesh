@@ -61,7 +61,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     try {
       this.connection = await amqplib.connect(url)
       this.channel = await this.connection.createConfirmChannel()
-      await this.channel.checkExchange(EXCHANGE)
+      await this.channel.assertExchange(EXCHANGE, 'topic', { durable: true })
 
       this.connection.on('close', () => {
         if (!this.shuttingDown) {
@@ -106,7 +106,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private async recreateChannel(): Promise<void> {
     try {
       this.channel = await this.connection.createConfirmChannel()
-      await this.channel.checkExchange(EXCHANGE)
+      await this.channel.assertExchange(EXCHANGE, 'topic', { durable: true })
       this.logger.info('RabbitMQ channel recreated')
     } catch (err) {
       this.logger.error(`Failed to recreate channel: ${(err as Error).message}`)

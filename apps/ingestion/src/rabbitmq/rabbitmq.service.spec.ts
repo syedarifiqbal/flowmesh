@@ -14,7 +14,7 @@ const mockLogger = {
 vi.mock('amqplib')
 
 const makeChannel = () => ({
-  checkExchange: vi.fn().mockResolvedValue(undefined),
+  assertExchange: vi.fn().mockResolvedValue(undefined),
   publish: vi.fn().mockImplementation((_ex, _rk, _buf, _opts, cb) => cb(null)),
   close: vi.fn().mockResolvedValue(undefined),
   on: vi.fn(),
@@ -48,7 +48,7 @@ describe('RabbitMQService', () => {
     await service.onModuleInit()
 
     expect(amqplib.connect).toHaveBeenCalledWith('amqp://localhost')
-    expect(channel.checkExchange).toHaveBeenCalledWith('flowmesh.events')
+    expect(channel.assertExchange).toHaveBeenCalledWith('flowmesh.events', 'topic', { durable: true })
   })
 
   it('publishes message with correct exchange and options', async () => {
