@@ -4,6 +4,9 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
 import Redis from 'ioredis'
 
 const IDEMPOTENCY_TTL_SECONDS = 86400 // 24 hours
+const MAX_RETRY_ATTEMPTS = 10
+const BASE_DELAY_MS = 500
+const MAX_DELAY_MS = 30000
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
@@ -20,13 +23,28 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     this.client = new Redis(url, {
       maxRetriesPerRequest: 3,
       lazyConnect: false,
+      retryStrategy: (attempt) => {
+        if (attempt > MAX_RETRY_ATTEMPTS) {
+          this.logger.error({ attempt }, 'redis max reconnect attempts reached — giving up')
+          return null // ioredis stops retrying when null is returned
+        }
+        const delay = Math.min(BASE_DELAY_MS * 2 ** (attempt - 1), MAX_DELAY_MS)
+        this.logger.warn({ attempt, delay }, 'redis unavailable — retrying')
+        return delay
+      },
+    })
+
+    this.client.on('connect', () => {
+      this.logger.info('connected to redis (persistent)')
     })
 
     this.client.on('error', (err) => {
-      this.logger.error(err, 'redis connection error')
+      this.logger.error({ err }, 'redis connection error')
     })
 
-    this.logger.info('connected to redis (persistent)')
+    this.client.on('end', () => {
+      this.logger.error('redis connection ended — no more retries will be attempted')
+    })
   }
 
   async onModuleDestroy() {
