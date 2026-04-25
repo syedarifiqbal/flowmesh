@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>FlowMesh Architecture</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1117;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #e6edf3;
+      padding: 48px 40px 60px;
+      min-width: 1100px;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+    }
+    .header h1 span { color: #58a6ff; }
+    .header p {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #8b949e;
+    }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .diagram {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* ── Box styles ─────────────────────────────────────── */
+    .box {
+      border-radius: 10px;
+      padding: 14px 20px;
+      text-align: center;
+      position: relative;
+    }
+    .box-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .box-sub {
+      font-size: 11px;
+      margin-top: 4px;
+      opacity: 0.75;
+    }
+    .box-tags {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    /* colour themes */
+    .blue   { background: #0d2137; border: 1.5px solid #1f6feb; }
+    .blue   .box-title { color: #58a6ff; }
+    .blue   .tag { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb55; }
+
+    .green  { background: #0d2318; border: 1.5px solid #238636; }
+    .green  .box-title { color: #3fb950; }
+    .green  .tag { background: #23863622; color: #3fb950; border: 1px solid #23863655; }
+
+    .orange { background: #1f1700; border: 1.5px solid #9e6a03; }
+    .orange .box-title { color: #e3b341; }
+    .orange .tag { background: #9e6a0322; color: #e3b341; border: 1px solid #9e6a0355; }
+
+    .purple { background: #1a0d2e; border: 1.5px solid #6e40c9; }
+    .purple .box-title { color: #a371f7; }
+    .purple .tag { background: #6e40c922; color: #a371f7; border: 1px solid #6e40c955; }
+
+    .red    { background: #200d0d; border: 1.5px solid #da3633; }
+    .red    .box-title { color: #f85149; }
+    .red    .tag { background: #da363322; color: #f85149; border: 1px solid #da363355; }
+
+    .teal   { background: #0d1f1f; border: 1.5px solid #1b7c83; }
+    .teal   .box-title { color: #39c5cf; }
+    .teal   .tag { background: #1b7c8322; color: #39c5cf; border: 1px solid #1b7c8355; }
+
+    .gray   { background: #161b22; border: 1.5px solid #30363d; }
+    .gray   .box-title { color: #8b949e; }
+    .gray   .tag { background: #30363d55; color: #8b949e; border: 1px solid #30363d; }
+
+    /* ── Arrow ──────────────────────────────────────────── */
+    .arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      margin: 0;
+    }
+    .arrow-line {
+      width: 2px;
+      height: 22px;
+      background: #30363d;
+    }
+    .arrow-head {
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 9px solid #30363d;
+    }
+    .arrow-label {
+      font-size: 10px;
+      color: #6e7681;
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+
+    /* ── Wide single-row layers ─────────────────────────── */
+    .layer {
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+    }
+    .layer .box { flex: 1; }
+
+    /* ── Wide client row ────────────────────────────────── */
+    .clients {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 0;
+    }
+    .clients .box { width: 140px; }
+
+    /* ── Service grid ───────────────────────────────────── */
+    .services-row {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+    }
+
+    /* ── Data stores ────────────────────────────────────── */
+    .stores-row {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+    }
+
+    /* ── Destination row ────────────────────────────────── */
+    .destinations-row {
+      display: flex;
+      gap: 10px;
+    }
+    .destinations-row .box { width: 120px; }
+
+    /* ── Queue bus ──────────────────────────────────────── */
+    .bus {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      width: 100%;
+    }
+    .bus-line {
+      flex: 1;
+      height: 2px;
+      background: #30363d;
+    }
+    .bus-label {
+      padding: 7px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      border-radius: 6px;
+    }
+
+    /* ── Section labels ─────────────────────────────────── */
+    .section-label {
+      font-size: 11px;
+      color: #6e7681;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      align-self: flex-start;
+    }
+
+    .w-full { width: 100%; }
+
+    /* ── Patterns legend ────────────────────────────────── */
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 48px;
+      width: 100%;
+    }
+    .legend-item {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .legend-item .lbl {
+      font-size: 11px;
+      font-weight: 700;
+      color: #58a6ff;
+      margin-bottom: 3px;
+    }
+    .legend-item .desc {
+      font-size: 11px;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+
+    .mt8  { margin-top: 8px; }
+    .mt16 { margin-top: 16px; }
+    .wide { width: 100%; max-width: 960px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Flow<span>Mesh</span> — Architecture</h1>
+    <p>Self-hostable open-source real-time event pipeline platform</p>
+  </div>
+
+  <div class="diagram">
+
+    <!-- ── Clients ─────────────────────────────────────── -->
+    <div class="section-label">Clients</div>
+    <div class="clients">
+      <div class="box gray" style="width:120px">
+        <div class="box-title">Web App</div>
+        <div class="box-sub">SDK / REST</div>
+      </div>
+      <div class="box gray" style="width:120px">
+        <div class="box-title">Mobile</div>
+        <div class="box-sub">SDK / REST</div>
+      </div>
+      <div class="box gray" style="width:120px">
+        <div class="box-title">Server</div>
+        <div class="box-sub">REST / Node SDK</div>
+      </div>
+      <div class="box gray" style="width:120px">
+        <div class="box-title">Go Client</div>
+        <div class="box-sub">Go SDK</div>
+      </div>
+    </div>
+
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+    <!-- ── API Gateway ─────────────────────────────────── -->
+    <div class="wide">
+      <div class="box blue" style="max-width:960px;width:100%">
+        <div class="box-title">API Gateway</div>
+        <div class="box-sub">NestJS + TypeScript · Entry point for all client traffic</div>
+        <div class="box-tags">
+          <span class="tag">JWT Auth</span>
+          <span class="tag">API Key Auth</span>
+          <span class="tag">Rate Limiting (Redis)</span>
+          <span class="tag">Request Routing</span>
+          <span class="tag">TLS Termination</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+    <!-- ── Core Services row ──────────────────────────── -->
+    <div class="section-label w-full">Core Services</div>
+    <div class="services-row wide">
+
+      <div class="box green" style="flex:2">
+        <div class="box-title">Ingestion</div>
+        <div class="box-sub">NestJS + TypeScript</div>
+        <div class="box-tags">
+          <span class="tag">Schema Validation</span>
+          <span class="tag">Idempotency Check</span>
+          <span class="tag">Persist to Postgres</span>
+          <span class="tag">Publish to RabbitMQ</span>
+        </div>
+      </div>
+
+      <div class="box blue" style="flex:1.5">
+        <div class="box-title">Auth</div>
+        <div class="box-sub">NestJS + TypeScript</div>
+        <div class="box-tags">
+          <span class="tag">JWT + Refresh</span>
+          <span class="tag">API Keys</span>
+          <span class="tag">Workspaces</span>
+          <span class="tag">RBAC</span>
+        </div>
+      </div>
+
+      <div class="box blue" style="flex:1.5">
+        <div class="box-title">Config</div>
+        <div class="box-sub">NestJS + TypeScript</div>
+        <div class="box-tags">
+          <span class="tag">Pipeline Definitions</span>
+          <span class="tag">Destination Creds</span>
+          <span class="tag">Encrypted at Rest</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── RabbitMQ Bus ─────────────────────────────────── -->
+    <div class="mt8 wide">
+      <div class="arrow"><div class="arrow-line"></div></div>
+      <div class="bus">
+        <div class="bus-line"></div>
+        <div class="bus-label box orange">RabbitMQ · flowmesh.events exchange (topic) · DLQ</div>
+        <div class="bus-line"></div>
+      </div>
+      <div class="arrow"><div class="arrow-head"></div></div>
+    </div>
+
+    <!-- ── Pipeline + Delivery ─────────────────────────── -->
+    <div class="services-row wide">
+
+      <div class="box purple" style="flex:1.5">
+        <div class="box-title">Pipeline</div>
+        <div class="box-sub">NestJS + TypeScript</div>
+        <div class="box-tags">
+          <span class="tag">Filter</span>
+          <span class="tag">Transform</span>
+          <span class="tag">Enrich</span>
+          <span class="tag">Fan-out</span>
+          <span class="tag">Saga Rollback</span>
+        </div>
+      </div>
+
+      <div class="box red" style="flex:2">
+        <div class="box-title">Delivery</div>
+        <div class="box-sub">Go · High-concurrency I/O</div>
+        <div class="box-tags">
+          <span class="tag">Circuit Breaker</span>
+          <span class="tag">Exponential Backoff</span>
+          <span class="tag">Max Retry → DLQ</span>
+          <span class="tag">Goroutine Fan-out</span>
+          <span class="tag">Exactly-once</span>
+        </div>
+      </div>
+
+      <div class="box teal" style="flex:1.5">
+        <div class="box-title">Analytics</div>
+        <div class="box-sub">NestJS + TypeScript</div>
+        <div class="box-tags">
+          <span class="tag">Throughput Metrics</span>
+          <span class="tag">Error Rates</span>
+          <span class="tag">TimescaleDB Queries</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+    <!-- ── Destinations ─────────────────────────────────── -->
+    <div class="section-label w-full">Destinations</div>
+    <div class="destinations-row">
+      <div class="box gray"><div class="box-title">PostgreSQL</div><div class="box-sub">Primary DB</div></div>
+      <div class="box gray"><div class="box-title">Slack</div><div class="box-sub">Notifications</div></div>
+      <div class="box gray"><div class="box-title">S3</div><div class="box-sub">Event Archive</div></div>
+      <div class="box gray"><div class="box-title">Webhooks</div><div class="box-sub">HTTP POST</div></div>
+      <div class="box gray"><div class="box-title">Discord</div><div class="box-sub">Notifications</div></div>
+      <div class="box gray" style="opacity:0.5"><div class="box-title">Custom</div><div class="box-sub">Plugin API</div></div>
+    </div>
+
+    <!-- ── Data Layer ─────────────────────────────────── -->
+    <div class="section-label w-full mt16">Data Layer</div>
+    <div class="stores-row wide">
+
+      <div class="box green" style="flex:2">
+        <div class="box-title">PostgreSQL + TimescaleDB</div>
+        <div class="box-sub">via PgBouncer (connection pooling)</div>
+        <div class="box-tags">
+          <span class="tag">Events</span>
+          <span class="tag">Config</span>
+          <span class="tag">Auth</span>
+          <span class="tag">Time-series Metrics</span>
+        </div>
+      </div>
+
+      <div class="box orange" style="flex:1.5">
+        <div class="box-title">Redis 1 — Ephemeral</div>
+        <div class="box-sub">allkeys-lru · no persistence</div>
+        <div class="box-tags">
+          <span class="tag">Rate Limit Counters</span>
+          <span class="tag">Pipeline Cache</span>
+          <span class="tag">Pub/Sub (Dashboard)</span>
+        </div>
+      </div>
+
+      <div class="box purple" style="flex:1.5">
+        <div class="box-title">Redis 2 — Persistent</div>
+        <div class="box-sub">AOF enabled · survives restart</div>
+        <div class="box-tags">
+          <span class="tag">Idempotency Keys</span>
+          <span class="tag">Token Blacklist</span>
+          <span class="tag">Workspace Quotas</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Patterns Legend ─────────────────────────────── -->
+    <div class="section-label w-full mt16">Distributed Systems Patterns</div>
+    <div class="legend wide">
+      <div class="legend-item">
+        <div class="lbl">Rate Limiting</div>
+        <div class="desc">Sliding window per API key. 1,000 events/min default. Counters in Redis 1.</div>
+      </div>
+      <div class="legend-item">
+        <div class="lbl">Idempotency</div>
+        <div class="desc">Deduplicate by eventId. Keys stored in Redis 2 (AOF). Survives service restarts.</div>
+      </div>
+      <div class="legend-item">
+        <div class="lbl">Circuit Breaker</div>
+        <div class="desc">In Go Delivery. Opens after N failures. Fails fast to protect downstream services.</div>
+      </div>
+      <div class="legend-item">
+        <div class="lbl">Exponential Backoff</div>
+        <div class="desc">Retry with doubling delay. Max 5 attempts per destination. Jitter to avoid thundering herd.</div>
+      </div>
+      <div class="legend-item">
+        <div class="lbl">Dead Letter Queue</div>
+        <div class="desc">Failed deliveries land in RabbitMQ DLQ. Full visibility. One-click replay from dashboard.</div>
+      </div>
+      <div class="legend-item">
+        <div class="lbl">Saga Pattern</div>
+        <div class="desc">Pipeline execution: coordinated rollback if a stage fails. No partial dirty state.</div>
+      </div>
+      <div class="legend-item">
+        <div class="lbl">CAP Theorem</div>
+        <div class="desc">Ingestion = AP (never drop events). Delivery = CP (guarantee exactly-once).</div>
+      </div>
+      <div class="legend-item">
+        <div class="lbl">Connection Pooling</div>
+        <div class="desc">PgBouncer sits in front of Postgres. All services connect to pooler, never directly to DB.</div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
