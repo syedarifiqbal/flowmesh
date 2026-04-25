@@ -22,6 +22,7 @@ module.exports = {
         'prisma',
         'ci',
         'deps',
+        'docs',
       ],
     ],
     'scope-empty': [2, 'never'],
