@@ -14,16 +14,12 @@ const makeHost = (overrides: {
   url?: string
   method?: string
   correlationIdHeader?: string
-  correlationIdBody?: string
 }) => {
   const req: Record<string, unknown> = {
     url: overrides.url ?? '/events',
     method: overrides.method ?? 'POST',
     headers: overrides.correlationIdHeader
       ? { 'x-correlation-id': overrides.correlationIdHeader }
-      : {},
-    body: overrides.correlationIdBody
-      ? { correlationId: overrides.correlationIdBody }
       : {},
   }
 
@@ -69,15 +65,6 @@ describe('HttpExceptionFilter', () => {
 
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({ correlationId: 'corr-123' }),
-    )
-  })
-
-  it('falls back to correlationId from request body', () => {
-    const { host, json } = makeHost({ correlationIdBody: 'corr-body-456' })
-    filter.catch(new BadRequestException('bad input'), host)
-
-    expect(json).toHaveBeenCalledWith(
-      expect.objectContaining({ correlationId: 'corr-body-456' }),
     )
   })
 

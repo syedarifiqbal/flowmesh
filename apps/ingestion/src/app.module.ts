@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common'
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 import { LoggerModule } from 'nestjs-pino'
 import { AppConfigModule } from './config/config.module'
 import { PrismaModule } from './prisma/prisma.module'
@@ -7,6 +7,7 @@ import { RedisModule } from './redis/redis.module'
 import { IngestionModule } from './ingestion/ingestion.module'
 import { HealthModule } from './health/health.module'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter'
+import { CorrelationIdMiddleware, CORRELATION_ID_HEADER } from './common/middleware/correlation-id.middleware'
 
 const isDev = process.env.NODE_ENV !== 'production'
 
@@ -21,7 +22,10 @@ const isDev = process.env.NODE_ENV !== 'production'
           req: (req) => ({ method: req.method, url: req.url }),
           res: (res) => ({ statusCode: res.statusCode }),
         },
-        customProps: () => ({ service: 'ingestion' }),
+        customProps: (req) => ({
+          service: 'ingestion',
+          correlationId: req.headers[CORRELATION_ID_HEADER],
+        }),
         autoLogging: {
           ignore: (req) => req.url === '/health',
         },
@@ -35,4 +39,8 @@ const isDev = process.env.NODE_ENV !== 'production'
   ],
   providers: [HttpExceptionFilter],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorrelationIdMiddleware).forRoutes('*')
+  }
+}

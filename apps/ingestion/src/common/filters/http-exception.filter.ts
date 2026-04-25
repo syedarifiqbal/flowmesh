@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common'
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
 import { Request, Response } from 'express'
+import { CORRELATION_ID_HEADER } from '../middleware/correlation-id.middleware'
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -13,9 +14,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const req = ctx.getRequest<Request>()
     const res = ctx.getResponse<Response>()
 
-    const correlationId =
-      (req.headers['x-correlation-id'] as string | undefined) ??
-      (req.body as Record<string, unknown> | undefined)?.correlationId as string | undefined
+    // Middleware guarantees this header is always present — no body fallback needed
+    const correlationId = req.headers[CORRELATION_ID_HEADER] as string | undefined
 
     let statusCode: number
     let error: string
