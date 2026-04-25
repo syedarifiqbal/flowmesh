@@ -1,0 +1,306 @@
+version: '3.9'
+
+services:
+
+  # ─── Data Layer ───────────────────────────────────────────────
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: flowmesh-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: flowmesh
+      POSTGRES_USER: flowmesh
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init/postgres:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowmesh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flowmesh
+
+  pgbouncer:
+    image: bitnami/pgbouncer:latest
+    container_name: flowmesh-pgbouncer
+    restart: unless-stopped
+    environment:
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_DATABASE: flowmesh
+      POSTGRESQL_USERNAME: flowmesh
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+      PGBOUNCER_DATABASE: flowmesh
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: 200
+      PGBOUNCER_DEFAULT_POOL_SIZE: 20
+    ports:
+      - "5432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - flowmesh
+
+  redis-ephemeral:
+    image: redis:7-alpine
+    container_name: flowmesh-redis-ephemeral
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flowmesh
+
+  redis-persistent:
+    image: redis:7-alpine
+    container_name: flowmesh-redis-persistent
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory-policy noeviction
+    volumes:
+      - redis_persistent_data:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flowmesh
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: flowmesh-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: flowmesh
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: flowmesh
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./init/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json
+      - ./init/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - flowmesh
+
+  # ─── Application Services ─────────────────────────────────────
+
+  api-gateway:
+    build:
+      context: ../apps/api-gateway
+      dockerfile: Dockerfile
+    container_name: flowmesh-api-gateway
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT: 3000
+      INGESTION_SERVICE_URL: http://ingestion:3001
+      CONFIG_SERVICE_URL: http://config-service:3005
+      AUTH_SERVICE_URL: http://auth:3004
+      REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+      REDIS_PERSISTENT_URL: redis://redis-persistent:6379
+    depends_on:
+      redis-ephemeral:
+        condition: service_healthy
+      redis-persistent:
+        condition: service_healthy
+    networks:
+      - flowmesh
+
+  ingestion:
+    build:
+      context: ../apps/ingestion
+      dockerfile: Dockerfile
+    container_name: flowmesh-ingestion
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+      REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+      REDIS_PERSISTENT_URL: redis://redis-persistent:6379
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis-persistent:
+        condition: service_healthy
+    networks:
+      - flowmesh
+
+  pipeline:
+    build:
+      context: ../apps/pipeline
+      dockerfile: Dockerfile
+    container_name: flowmesh-pipeline
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+      REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+      CONFIG_SERVICE_URL: http://config-service:3005
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_started
+    networks:
+      - flowmesh
+
+  delivery:
+    build:
+      context: ../apps/delivery
+      dockerfile: Dockerfile
+    container_name: flowmesh-delivery
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_started
+    networks:
+      - flowmesh
+
+  auth:
+    build:
+      context: ../apps/auth
+      dockerfile: Dockerfile
+    container_name: flowmesh-auth
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      REDIS_PERSISTENT_URL: redis://redis-persistent:6379
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis-persistent:
+        condition: service_healthy
+    networks:
+      - flowmesh
+
+  config-service:
+    build:
+      context: ../apps/config-service
+      dockerfile: Dockerfile
+    container_name: flowmesh-config
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT: 3005
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis-ephemeral:
+        condition: service_healthy
+    networks:
+      - flowmesh
+
+  analytics:
+    build:
+      context: ../apps/analytics
+      dockerfile: Dockerfile
+    container_name: flowmesh-analytics
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT: 3006
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+      REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_started
+    networks:
+      - flowmesh
+
+  alert:
+    build:
+      context: ../apps/alert
+      dockerfile: Dockerfile
+    container_name: flowmesh-alert
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT: 3007
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_started
+    networks:
+      - flowmesh
+
+  # ─── Edge ─────────────────────────────────────────────────────
+
+  nginx:
+    image: nginx:alpine
+    container_name: flowmesh-nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api-gateway
+    networks:
+      - flowmesh
+
+# ─── Volumes ────────────────────────────────────────────────────
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  redis_persistent_data:
+
+# ─── Networks ───────────────────────────────────────────────────
+
+networks:
+  flowmesh:
+    driver: bridge

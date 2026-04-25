@@ -1,0 +1,85 @@
+version: '3.9'
+
+# Development overrides — mounts source code and enables hot reload.
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+
+  api-gateway:
+    build:
+      target: development
+    volumes:
+      - ../apps/api-gateway:/app
+      - /app/node_modules
+    command: pnpm run dev
+    environment:
+      NODE_ENV: development
+
+  ingestion:
+    build:
+      target: development
+    volumes:
+      - ../apps/ingestion:/app
+      - /app/node_modules
+    command: pnpm run dev
+    environment:
+      NODE_ENV: development
+
+  pipeline:
+    build:
+      target: development
+    volumes:
+      - ../apps/pipeline:/app
+      - /app/node_modules
+    command: pnpm run dev
+    environment:
+      NODE_ENV: development
+
+  delivery:
+    build:
+      target: development
+    volumes:
+      - ../apps/delivery:/app
+    command: go run ./cmd/server
+    environment:
+      GO_ENV: development
+
+  auth:
+    build:
+      target: development
+    volumes:
+      - ../apps/auth:/app
+      - /app/node_modules
+    command: pnpm run dev
+    environment:
+      NODE_ENV: development
+
+  config-service:
+    build:
+      target: development
+    volumes:
+      - ../apps/config-service:/app
+      - /app/node_modules
+    command: pnpm run dev
+    environment:
+      NODE_ENV: development
+
+  analytics:
+    build:
+      target: development
+    volumes:
+      - ../apps/analytics:/app
+      - /app/node_modules
+    command: pnpm run dev
+    environment:
+      NODE_ENV: development
+
+  alert:
+    build:
+      target: development
+    volumes:
+      - ../apps/alert:/app
+      - /app/node_modules
+    command: pnpm run dev
+    environment:
+      NODE_ENV: development

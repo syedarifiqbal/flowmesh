@@ -1,0 +1,79 @@
+{
+  "vhosts": [
+    { "name": "flowmesh" }
+  ],
+  "exchanges": [
+    {
+      "name": "flowmesh.events",
+      "vhost": "flowmesh",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false
+    },
+    {
+      "name": "flowmesh.dead_letter",
+      "vhost": "flowmesh",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false
+    }
+  ],
+  "queues": [
+    {
+      "name": "ingestion.events",
+      "vhost": "flowmesh",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "flowmesh.dead_letter",
+        "x-dead-letter-routing-key": "dead.ingestion.events",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "pipeline.events",
+      "vhost": "flowmesh",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "flowmesh.dead_letter",
+        "x-dead-letter-routing-key": "dead.pipeline.events",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "delivery.events",
+      "vhost": "flowmesh",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "flowmesh.dead_letter",
+        "x-dead-letter-routing-key": "dead.delivery.events",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "dead_letter.queue",
+      "vhost": "flowmesh",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "flowmesh.events",
+      "vhost": "flowmesh",
+      "destination": "ingestion.events",
+      "destination_type": "queue",
+      "routing_key": "event.#"
+    },
+    {
+      "source": "flowmesh.dead_letter",
+      "vhost": "flowmesh",
+      "destination": "dead_letter.queue",
+      "destination_type": "queue",
+      "routing_key": "dead.#"
+    }
+  ]
+}
