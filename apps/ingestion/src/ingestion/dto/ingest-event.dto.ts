@@ -15,10 +15,10 @@ export class IngestEventDto {
   @Matches(/^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/, {
     message: 'event must be dot notation lowercase, e.g. "order.created"',
   })
-  event: string
+  event!: string
 
   @IsUUID('4')
-  correlationId: string
+  correlationId!: string
 
   @IsUUID('4')
   @IsOptional()
@@ -30,11 +30,11 @@ export class IngestEventDto {
 
   @IsString()
   @IsNotEmpty()
-  source: string
+  source!: string
 
   @IsString()
   @IsNotEmpty()
-  version: string
+  version!: string
 
   @ValidateIf((o: IngestEventDto) => !o.anonymousId)
   @IsString()

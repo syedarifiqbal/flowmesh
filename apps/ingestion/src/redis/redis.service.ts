@@ -6,7 +6,7 @@ const IDEMPOTENCY_TTL_SECONDS = 86400 // 24 hours
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name)
-  private client: Redis
+  private client!: Redis
 
   onModuleInit() {
     const url = process.env.REDIS_PERSISTENT_URL

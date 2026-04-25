@@ -8,5 +8,5 @@ export class IngestBatchDto {
   @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => IngestEventDto)
-  events: IngestEventDto[]
+  events!: IngestEventDto[]
 }

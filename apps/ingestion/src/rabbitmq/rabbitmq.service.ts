@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common'
-import amqplib, { Connection, ConfirmChannel } from 'amqplib'
+import amqplib, { ChannelModel, ConfirmChannel } from 'amqplib'
 
 const EXCHANGE = 'flowmesh.events'
 const ROUTING_KEY = 'event.ingested'
@@ -7,8 +7,8 @@ const ROUTING_KEY = 'event.ingested'
 @Injectable()
 export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RabbitMQService.name)
-  private connection: Connection
-  private channel: ConfirmChannel
+  private connection!: ChannelModel
+  private channel!: ConfirmChannel
 
   async onModuleInit() {
     const url = process.env.RABBITMQ_URL
