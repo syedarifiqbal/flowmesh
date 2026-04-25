@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id            String   @id @default(uuid())
+  workspaceId   String   @map("workspace_id")
+  eventId       String   @unique @map("event_id")
+  correlationId String   @map("correlation_id")
+  eventName     String   @map("event_name")
+  source        String
+  version       String
+  userId        String?  @map("user_id")
+  anonymousId   String?  @map("anonymous_id")
+  sessionId     String?  @map("session_id")
+  properties    Json     @default("{}")
+  context       Json     @default("{}")
+  receivedAt    DateTime @default(now()) @map("received_at")
+  ingestedAt    DateTime @default(now()) @map("ingested_at")
+
+  @@index([workspaceId, receivedAt(sort: Desc)])
+  @@index([correlationId])
+  @@index([workspaceId, eventName])
+  @@map("events")
+}

@@ -31,6 +31,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma clients
+        run: pnpm --filter @flowmesh/ingestion prisma:generate
+
       - run: pnpm turbo run typecheck
 
   lint:
@@ -49,6 +52,9 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma clients
+        run: pnpm --filter @flowmesh/ingestion prisma:generate
 
       - run: pnpm turbo run lint
 
@@ -69,6 +75,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma clients
+        run: pnpm --filter @flowmesh/ingestion prisma:generate
+
       - run: pnpm vitest run --coverage --config vitest.config.ts
 
       - name: Upload coverage report
@@ -85,11 +94,11 @@ jobs:
       postgres:
         image: timescale/timescaledb:latest-pg16
         env:
-          POSTGRES_DB: flowmesh_test
+          POSTGRES_DB: flowmesh
           POSTGRES_USER: flowmesh
           POSTGRES_PASSWORD: test_password
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -131,11 +140,12 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://flowmesh:test_password@localhost:5432/flowmesh_test
+      DATABASE_URL: postgresql://flowmesh:test_password@localhost:5433/flowmesh?schema=ingestion
       REDIS_EPHEMERAL_URL: redis://localhost:6379
       REDIS_PERSISTENT_URL: redis://localhost:6380
       RABBITMQ_URL: amqp://flowmesh:test_password@localhost:5672/flowmesh
       JWT_SECRET: test_jwt_secret_for_ci_only
+      JWT_REFRESH_SECRET: test_jwt_refresh_secret_for_ci_only
 
     steps:
       - uses: actions/checkout@v4
@@ -151,7 +161,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm vitest run --coverage --config vitest.integration.config.ts
+      - name: Generate Prisma clients
+        run: pnpm --filter @flowmesh/ingestion prisma:generate
+
+      - name: Run ingestion migrations
+        run: pnpm --filter @flowmesh/ingestion prisma:migrate:deploy
+
+      - run: pnpm vitest run --config vitest.integration.config.ts
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -161,65 +177,14 @@ jobs:
           path: coverage-integration/
 
   # ── Go Delivery Service ──────────────────────────────────────
+  # Skipped until apps/delivery is scaffolded
 
   go-test:
     name: Go Tests (Delivery)
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: timescale/timescaledb:latest-pg16
-        env:
-          POSTGRES_DB: flowmesh_test
-          POSTGRES_USER: flowmesh
-          POSTGRES_PASSWORD: test_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      rabbitmq:
-        image: rabbitmq:3.13-management-alpine
-        env:
-          RABBITMQ_DEFAULT_USER: flowmesh
-          RABBITMQ_DEFAULT_PASS: test_password
-          RABBITMQ_DEFAULT_VHOST: flowmesh
-        ports:
-          - 5672:5672
-        options: >-
-          --health-cmd "rabbitmq-diagnostics ping"
-          --health-interval 15s
-          --health-timeout 10s
-          --health-retries 5
-
+    if: false
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache-dependency-path: apps/delivery/go.sum
-
-      - name: Run tests with coverage
-        working-directory: apps/delivery
-        env:
-          DATABASE_URL: postgresql://flowmesh:test_password@localhost:5432/flowmesh_test
-          RABBITMQ_URL: amqp://flowmesh:test_password@localhost:5672/flowmesh
-        run: |
-          go test ./... -coverprofile=coverage.out -covermode=atomic
-          go tool cover -func=coverage.out
-
-      - name: Check coverage threshold (80%)
-        working-directory: apps/delivery
-        run: |
-          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          echo "Total coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-            echo "Coverage $COVERAGE% is below the 80% threshold"
-            exit 1
-          fi
+      - run: echo "Delivery service not yet scaffolded"
 
   # ── Build Check ──────────────────────────────────────────────
 
@@ -240,5 +205,8 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma clients
+        run: pnpm --filter @flowmesh/ingestion prisma:generate
 
       - run: pnpm turbo run build

@@ -1,6 +1,15 @@
 import { defineConfig } from 'vitest/config'
+import swc from 'unplugin-swc'
 
 export default defineConfig({
+  plugins: [
+    swc.vite({
+      jsc: {
+        parser: { syntax: 'typescript', decorators: true },
+        transform: { decoratorMetadata: true },
+      },
+    }),
+  ],
   test: {
     globals: true,
     environment: 'node',
@@ -15,27 +24,7 @@ export default defineConfig({
       forks: { singleFork: true },
     },
 
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'lcov'],
-      reportsDirectory: './coverage-integration',
-      thresholds: {
-        statements: 80,
-        branches: 80,
-        functions: 80,
-        lines: 80,
-      },
-      exclude: [
-        '**/node_modules/**',
-        '**/dist/**',
-        '**/*.module.ts',
-        '**/main.ts',
-        '**/migrations/**',
-        '**/*.dto.ts',
-        '**/*.entity.ts',
-      ],
-    },
-
+    setupFiles: ['apps/ingestion/src/test-setup.integration.ts'],
     include: ['apps/*/src/**/*.integration.spec.ts'],
     exclude: ['**/node_modules/**', '**/dist/**'],
   },

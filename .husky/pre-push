@@ -1,0 +1,8 @@
+protected_branches="main"
+current_branch=$(git symbolic-ref HEAD | sed 's|refs/heads/||')
+
+if echo "$protected_branches" | grep -qw "$current_branch"; then
+  echo "error: direct push to '$current_branch' is not allowed"
+  echo "       open a PR from 'develop' instead"
+  exit 1
+fi

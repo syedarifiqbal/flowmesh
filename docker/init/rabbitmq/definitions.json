@@ -1,6 +1,22 @@
 {
+  "users": [
+    {
+      "name": "flowmesh",
+      "password": "flowmesh_dev",
+      "tags": "administrator"
+    }
+  ],
   "vhosts": [
     { "name": "flowmesh" }
+  ],
+  "permissions": [
+    {
+      "user": "flowmesh",
+      "vhost": "flowmesh",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
   ],
   "exchanges": [
     {
