@@ -1,13 +1,14 @@
 import { NestFactory } from '@nestjs/core'
-import { ValidationPipe, Logger } from '@nestjs/common'
+import { ValidationPipe } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { Logger } from 'nestjs-pino'
 import { AppModule } from './app.module'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create(AppModule, { bufferLogs: true })
   const config = app.get(ConfigService)
-  const logger = new Logger('Ingestion')
 
+  app.useLogger(app.get(Logger))
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     forbidNonWhitelisted: true,
@@ -16,7 +17,7 @@ async function bootstrap() {
 
   const port = config.get<number>('PORT')!
   await app.listen(port, '0.0.0.0')
-  logger.log(`Ingestion service listening on port ${port}`)
+  app.get(Logger).log(`Ingestion service listening on port ${port}`, 'Ingestion')
 }
 
 bootstrap()

@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
 import { PrismaService } from '../prisma/prisma.service'
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service'
 import { RedisService } from '../redis/redis.service'
@@ -12,12 +13,11 @@ export interface IngestResult {
 
 @Injectable()
 export class IngestionService {
-  private readonly logger = new Logger(IngestionService.name)
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly rabbitmq: RabbitMQService,
     private readonly redis: RedisService,
+    @InjectPinoLogger(IngestionService.name) private readonly logger: PinoLogger,
   ) {}
 
   async ingest(dto: IngestEventDto, workspaceId: string): Promise<IngestResult> {
@@ -27,7 +27,7 @@ export class IngestionService {
     // Idempotency check — skip if already processed
     const isDuplicate = await this.redis.isEventProcessed(eventId)
     if (isDuplicate) {
-      this.logger.debug(`Duplicate event skipped: ${eventId} correlationId=${dto.correlationId}`)
+      this.logger.debug({ eventId, correlationId: dto.correlationId }, 'duplicate event skipped')
       return { eventId, status: 'duplicate' }
     }
 
@@ -76,7 +76,7 @@ export class IngestionService {
     // Mark as processed after successful publish
     await this.redis.markEventProcessed(eventId)
 
-    this.logger.log(`Event accepted: ${dto.event} eventId=${eventId} correlationId=${dto.correlationId}`)
+    this.logger.info({ eventId, correlationId: dto.correlationId, workspaceId, event: dto.event }, 'event accepted')
 
     return { eventId, status: 'accepted' }
   }

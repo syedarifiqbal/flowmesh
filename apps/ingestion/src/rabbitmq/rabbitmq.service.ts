@@ -1,5 +1,6 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common'
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
 import amqplib, { ChannelModel, ConfirmChannel } from 'amqplib'
 
 const EXCHANGE = 'flowmesh.events'
@@ -10,12 +11,14 @@ const MAX_DELAY_MS = 30000
 
 @Injectable()
 export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(RabbitMQService.name)
   private connection!: ChannelModel
   private channel!: ConfirmChannel
   private shuttingDown = false
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @InjectPinoLogger(RabbitMQService.name) private readonly logger: PinoLogger,
+  ) {}
 
   async onModuleInit() {
     await this.connect()
@@ -84,7 +87,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
         }
       })
 
-      this.logger.log('Connected to RabbitMQ')
+      this.logger.info('Connected to RabbitMQ')
     } catch (err) {
       if (this.shuttingDown) return
 
@@ -104,7 +107,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     try {
       this.channel = await this.connection.createConfirmChannel()
       await this.channel.checkExchange(EXCHANGE)
-      this.logger.log('RabbitMQ channel recreated')
+      this.logger.info('RabbitMQ channel recreated')
     } catch (err) {
       this.logger.error(`Failed to recreate channel: ${(err as Error).message}`)
     }

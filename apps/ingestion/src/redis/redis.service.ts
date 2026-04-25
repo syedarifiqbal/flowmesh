@@ -1,15 +1,18 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common'
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
 import Redis from 'ioredis'
 
 const IDEMPOTENCY_TTL_SECONDS = 86400 // 24 hours
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(RedisService.name)
   private client!: Redis
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @InjectPinoLogger(RedisService.name) private readonly logger: PinoLogger,
+  ) {}
 
   onModuleInit() {
     const url = this.config.get<string>('REDIS_PERSISTENT_URL')!
@@ -20,10 +23,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     })
 
     this.client.on('error', (err) => {
-      this.logger.error(`Redis connection error: ${err.message}`)
+      this.logger.error(err, 'redis connection error')
     })
 
-    this.logger.log('Connected to Redis (persistent)')
+    this.logger.info('connected to redis (persistent)')
   }
 
   async onModuleDestroy() {

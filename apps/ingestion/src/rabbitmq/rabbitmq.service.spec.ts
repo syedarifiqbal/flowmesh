@@ -1,7 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ConfigService } from '@nestjs/config'
+import { PinoLogger } from 'nestjs-pino'
 import { RabbitMQService } from './rabbitmq.service'
 import * as amqplib from 'amqplib'
+
+const mockLogger = {
+  info: vi.fn(),
+  debug: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+} as unknown as PinoLogger
 
 vi.mock('amqplib')
 
@@ -36,7 +44,7 @@ describe('RabbitMQService', () => {
     const connection = makeConnection(channel)
     vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
 
-    const service = new RabbitMQService(makeConfig())
+    const service = new RabbitMQService(makeConfig(), mockLogger)
     await service.onModuleInit()
 
     expect(amqplib.connect).toHaveBeenCalledWith('amqp://localhost')
@@ -48,7 +56,7 @@ describe('RabbitMQService', () => {
     const connection = makeConnection(channel)
     vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
 
-    const service = new RabbitMQService(makeConfig())
+    const service = new RabbitMQService(makeConfig(), mockLogger)
     await service.onModuleInit()
     await service.publish({ meta: {}, payload: {} })
 
@@ -68,7 +76,7 @@ describe('RabbitMQService', () => {
       .mockRejectedValueOnce(new Error('ECONNREFUSED'))
       .mockResolvedValue(connection as any)
 
-    const service = new RabbitMQService(makeConfig())
+    const service = new RabbitMQService(makeConfig(), mockLogger)
     const initPromise = service.onModuleInit()
 
     await vi.runAllTimersAsync()
@@ -82,7 +90,7 @@ describe('RabbitMQService', () => {
     const connection = makeConnection(channel)
     vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
 
-    const service = new RabbitMQService(makeConfig())
+    const service = new RabbitMQService(makeConfig(), mockLogger)
     await service.onModuleInit()
 
     const closeHandler = connection.on.mock.calls.find(([event]) => event === 'close')?.[1]
@@ -107,7 +115,7 @@ describe('RabbitMQService', () => {
     const connection = makeConnection(channel)
     vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
 
-    const service = new RabbitMQService(makeConfig())
+    const service = new RabbitMQService(makeConfig(), mockLogger)
     await service.onModuleInit()
     await service.onModuleDestroy()
 
@@ -124,7 +132,7 @@ describe('RabbitMQService', () => {
     const connection = makeConnection(channel)
     vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
 
-    const service = new RabbitMQService(makeConfig())
+    const service = new RabbitMQService(makeConfig(), mockLogger)
     await service.onModuleInit()
     await service.onModuleDestroy()
 
@@ -135,7 +143,7 @@ describe('RabbitMQService', () => {
   it('throws after max retry attempts are exhausted', async () => {
     vi.mocked(amqplib.connect).mockRejectedValue(new Error('ECONNREFUSED'))
 
-    const service = new RabbitMQService(makeConfig())
+    const service = new RabbitMQService(makeConfig(), mockLogger)
     const initPromise = service.onModuleInit()
 
     // attach rejection handler before running timers — prevents unhandled rejection

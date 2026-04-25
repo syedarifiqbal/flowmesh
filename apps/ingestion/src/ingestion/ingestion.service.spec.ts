@@ -1,10 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { randomUUID } from 'crypto'
+import { PinoLogger } from 'nestjs-pino'
 import { IngestionService } from './ingestion.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service'
 import { RedisService } from '../redis/redis.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
+
+const mockLogger = {
+  info: vi.fn(),
+  debug: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+} as unknown as PinoLogger
 
 const makeEvent = (overrides: Partial<IngestEventDto> = {}): IngestEventDto => ({
   event: 'order.created',
@@ -39,6 +47,7 @@ describe('IngestionService', () => {
       prisma as unknown as PrismaService,
       rabbitmq as unknown as RabbitMQService,
       redis as unknown as RedisService,
+      mockLogger,
     )
   })
 
