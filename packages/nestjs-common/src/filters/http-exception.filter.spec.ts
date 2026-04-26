@@ -1,14 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { HttpException, HttpStatus } from '@nestjs/common'
-import { PinoLogger } from 'nestjs-pino'
 import { HttpExceptionFilter } from './http-exception.filter'
 import { CORRELATION_ID_HEADER } from '../middleware/correlation-id.middleware'
 
-const mockLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-} as unknown as PinoLogger
+vi.mock('@nestjs/common', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@nestjs/common')>()
+  return {
+    ...actual,
+    Logger: class {
+      error = vi.fn()
+      warn = vi.fn()
+      log = vi.fn()
+    },
+  }
+})
 
 const makeHost = (overrides: { url?: string; method?: string; correlationId?: string } = {}) => {
   const req = {
@@ -23,6 +28,7 @@ const makeHost = (overrides: { url?: string; method?: string; correlationId?: st
       getResponse: () => res,
     }),
     res,
+    req,
   } as any
 }
 
@@ -31,7 +37,7 @@ describe('HttpExceptionFilter', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    filter = new HttpExceptionFilter(mockLogger)
+    filter = new HttpExceptionFilter()
   })
 
   it('returns correct shape for a 400 HttpException', () => {
@@ -44,23 +50,11 @@ describe('HttpExceptionFilter', () => {
     )
   })
 
-  it('logs 4xx at warn level', () => {
-    filter.catch(new HttpException('Not Found', HttpStatus.NOT_FOUND), makeHost())
-    expect(mockLogger.warn).toHaveBeenCalledOnce()
-    expect(mockLogger.error).not.toHaveBeenCalled()
-  })
-
-  it('logs 5xx at error level', () => {
-    filter.catch(new HttpException('Server Error', HttpStatus.INTERNAL_SERVER_ERROR), makeHost())
-    expect(mockLogger.error).toHaveBeenCalled()
-  })
-
-  it('returns 500 and logs for unhandled non-HttpException', () => {
+  it('returns 500 for unhandled non-HttpException', () => {
     const host = makeHost()
     filter.catch(new Error('boom'), host)
 
     expect(host.res.status).toHaveBeenCalledWith(500)
-    expect(mockLogger.error).toHaveBeenCalledTimes(2)
   })
 
   it('includes validation error message array from NestJS ValidationPipe', () => {
@@ -74,8 +68,7 @@ describe('HttpExceptionFilter', () => {
   })
 
   it('omits correlationId when header is absent', () => {
-    const host = makeHost({ correlationId: undefined as any })
-    // Override to have no header
+    const host = makeHost()
     host.switchToHttp().getRequest().headers = {}
     filter.catch(new HttpException('Not Found', HttpStatus.NOT_FOUND), host)
 

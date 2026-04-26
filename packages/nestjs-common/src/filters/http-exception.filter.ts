@@ -1,13 +1,10 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common'
-import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common'
 import { Request, Response } from 'express'
 import { CORRELATION_ID_HEADER } from '../middleware/correlation-id.middleware'
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  constructor(
-    @InjectPinoLogger(HttpExceptionFilter.name) private readonly logger: PinoLogger,
-  ) {}
+  private readonly logger = new Logger(HttpExceptionFilter.name)
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp()

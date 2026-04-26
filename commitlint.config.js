@@ -26,6 +26,7 @@ module.exports = {
         'docs',
         // other
         'refactor',
+        'fix'
       ],
     ],
     'scope-empty': [2, 'never'],
