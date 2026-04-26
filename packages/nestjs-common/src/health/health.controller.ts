@@ -5,6 +5,6 @@ export class HealthController {
   @Get()
   @HttpCode(200)
   check() {
-    return { status: 'ok', service: 'ingestion' }
+    return { status: 'ok' }
   }
 }

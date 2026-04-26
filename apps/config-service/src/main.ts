@@ -1,31 +1,39 @@
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { Logger } from 'nestjs-pino'
 import { AppModule } from './app.module'
-import { HttpExceptionFilter } from './common/filters/http-exception.filter'
+import { HttpExceptionFilter } from '@flowmesh/nestjs-common'
+
+const DRAIN_DELAY_MS = 5000
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true })
+  const config = app.get(ConfigService)
 
   app.useLogger(app.get(Logger))
   app.useGlobalFilters(app.get(HttpExceptionFilter))
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
-
-  const port = process.env.PORT ?? 3002
-  await app.listen(port)
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }))
 
   const logger = app.get(Logger)
-  logger.log(`Config service listening on port ${port}`, 'Bootstrap')
 
   process.on('SIGTERM', async () => {
-    logger.log('SIGTERM received — shutting down', 'Bootstrap')
-    await new Promise((resolve) => setTimeout(resolve, 5000))
+    logger.log('SIGTERM received — draining connections', 'ConfigService')
+    await new Promise((resolve) => setTimeout(resolve, DRAIN_DELAY_MS))
     await app.close()
   })
 
   process.on('SIGINT', async () => {
     await app.close()
   })
+
+  const port = config.get<number>('PORT')!
+  await app.listen(port, '0.0.0.0')
+  logger.log(`Config service listening on port ${port}`, 'ConfigService')
 }
 
 bootstrap()

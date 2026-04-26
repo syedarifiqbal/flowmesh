@@ -16,6 +16,7 @@ module.exports = {
         'config',
         'gateway',
         // shared / infra
+        'shared-common',
         'shared-types',
         'docker',
         'makefile',
@@ -23,6 +24,8 @@ module.exports = {
         'ci',
         'deps',
         'docs',
+        // other
+        'refactor',
       ],
     ],
     'scope-empty': [2, 'never'],
