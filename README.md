@@ -1,5 +1,13 @@
 # FlowMesh
 
+[![CI](https://github.com/syedarifiqbal/flowmesh/actions/workflows/ci.yml/badge.svg)](https://github.com/syedarifiqbal/flowmesh/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://golang.org)
+[![pnpm](https://img.shields.io/badge/pnpm-8.15-F69220?logo=pnpm&logoColor=white)](https://pnpm.io)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/syedarifiqbal/flowmesh/pulls)
+
 **Self-hostable, open-source real-time event pipeline platform.**
 
 FlowMesh replaces Segment + Mixpanel + PagerDuty in a single Docker deployment — fully open source, fully under your control, free forever.
@@ -341,6 +349,26 @@ The best ways to contribute right now:
 
 Please open an issue before starting significant work so we can discuss the approach.
 
+### CI pipeline
+
+Every pull request runs the following checks — all must pass before merge:
+
+| Job | What it checks |
+|---|---|
+| **Typecheck** | `tsc --noEmit` across all TypeScript services |
+| **Lint** | TypeScript compiler in strict mode |
+| **Unit tests** | Vitest — all `*.spec.ts` files, no real infrastructure |
+| **Integration tests** | Vitest against real Postgres, RabbitMQ, and Redis (via GitHub Actions services) |
+| **Coverage** | 80% minimum on statements, branches, and functions — PR is blocked if any service falls below |
+| **Build** | `turbo run build` — all services must compile cleanly |
+
+Run the full suite locally before opening a PR:
+
+```bash
+make test                # unit tests
+make test-integration    # integration tests (requires Docker infra running)
+```
+
 ### Development principles
 
 - TypeScript strict mode, no `any`
@@ -383,7 +411,7 @@ One-command Docker Compose, documentation site, Hacker News and Product Hunt lau
 
 FlowMesh Community Edition is licensed under the [MIT License](LICENSE).
 
-Enterprise Edition features are available under a commercial license. Contact [arifiqbal@outlook.com](mailto:arifiqbal@outlook.com) for details.
+Enterprise features are available on FlowMesh Cloud.
 
 ---
 
