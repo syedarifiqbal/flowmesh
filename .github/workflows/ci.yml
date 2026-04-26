@@ -32,7 +32,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma clients
-        run: pnpm --filter @flowmesh/ingestion prisma:generate
+        run: |
+          pnpm --filter @flowmesh/ingestion prisma:generate
+          pnpm --filter @flowmesh/config-service prisma:generate
 
       - run: pnpm turbo run typecheck
 
@@ -54,7 +56,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma clients
-        run: pnpm --filter @flowmesh/ingestion prisma:generate
+        run: |
+          pnpm --filter @flowmesh/ingestion prisma:generate
+          pnpm --filter @flowmesh/config-service prisma:generate
 
       - run: pnpm turbo run lint
 
@@ -76,7 +80,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma clients
-        run: pnpm --filter @flowmesh/ingestion prisma:generate
+        run: |
+          pnpm --filter @flowmesh/ingestion prisma:generate
+          pnpm --filter @flowmesh/config-service prisma:generate
 
       - run: pnpm vitest run --coverage --config vitest.config.ts
 
@@ -162,7 +168,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma clients
-        run: pnpm --filter @flowmesh/ingestion prisma:generate
+        run: |
+          pnpm --filter @flowmesh/ingestion prisma:generate
+          pnpm --filter @flowmesh/config-service prisma:generate
 
       - name: Run ingestion migrations
         run: pnpm --filter @flowmesh/ingestion prisma:migrate:deploy
@@ -207,6 +215,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma clients
-        run: pnpm --filter @flowmesh/ingestion prisma:generate
+        run: |
+          pnpm --filter @flowmesh/ingestion prisma:generate
+          pnpm --filter @flowmesh/config-service prisma:generate
 
       - run: pnpm turbo run build

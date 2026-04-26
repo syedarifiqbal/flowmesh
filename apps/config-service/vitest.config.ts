@@ -13,7 +13,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-
+    include: ['src/**/*.spec.ts'],
+    exclude: ['**/*.integration.spec.ts', '**/node_modules/**', '**/dist/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
@@ -32,20 +33,9 @@ export default defineConfig({
         '**/migrations/**',
         '**/*.dto.ts',
         '**/*.entity.ts',
-        '**/vitest.config.ts',
-        '**/*.integration.spec.ts',
-        '**/test-setup.integration.ts',
-        '**/health/**',
         '**/*.config.ts',
-        '**/*.config.js',
-        '**/shared-types/**',
-        '**/generated/**',
-        '**/coverage/**',
+        '**/health/**',
       ],
     },
-
-    // Unit tests only — integration tests run separately
-    include: ['apps/*/src/**/*.spec.ts', 'packages/*/src/**/*.spec.ts'],
-    exclude: ['**/*.integration.spec.ts', '**/node_modules/**', '**/dist/**'],
   },
 })

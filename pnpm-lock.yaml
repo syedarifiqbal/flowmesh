@@ -36,6 +36,82 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.39)
 
+  apps/config-service:
+    dependencies:
+      '@flowmesh/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@nestjs/common':
+        specifier: ^10.3.0
+        version: 10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/config':
+        specifier: ^4.0.4
+        version: 4.0.4(@nestjs/common@10.4.22)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^10.3.0
+        version: 10.4.22(@nestjs/common@10.4.22)(@nestjs/platform-express@10.4.22)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express':
+        specifier: ^10.3.0
+        version: 10.4.22(@nestjs/common@10.4.22)(@nestjs/core@10.4.22)
+      '@prisma/client':
+        specifier: ^5.10.0
+        version: 5.22.0(prisma@5.22.0)
+      class-transformer:
+        specifier: ^0.5.1
+        version: 0.5.1
+      class-validator:
+        specifier: ^0.14.1
+        version: 0.14.4
+      ioredis:
+        specifier: ^5.3.2
+        version: 5.10.1
+      joi:
+        specifier: ^18.1.2
+        version: 18.1.2
+      nestjs-pino:
+        specifier: ^3.5.0
+        version: 3.5.0(@nestjs/common@10.4.22)(pino-http@8.6.1)
+      pino:
+        specifier: '8'
+        version: 8.21.0
+      pino-http:
+        specifier: ^8.6.1
+        version: 8.6.1
+      reflect-metadata:
+        specifier: ^0.2.0
+        version: 0.2.2
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.2
+    devDependencies:
+      '@nestjs/cli':
+        specifier: ^10.3.0
+        version: 10.4.9(@swc/core@1.15.30)
+      '@nestjs/testing':
+        specifier: ^10.3.0
+        version: 10.4.22(@nestjs/common@10.4.22)(@nestjs/core@10.4.22)(@nestjs/platform-express@10.4.22)
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.39
+      '@types/supertest':
+        specifier: ^7.2.0
+        version: 7.2.0
+      pino-pretty:
+        specifier: ^10.3.1
+        version: 10.3.1
+      prisma:
+        specifier: ^5.10.0
+        version: 5.22.0
+      supertest:
+        specifier: ^7.1.0
+        version: 7.2.2
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+
   apps/ingestion:
     dependencies:
       '@flowmesh/shared-types':

@@ -44,6 +44,24 @@ ingestion-migrate:
 ingestion-generate:
 	pnpm --filter @flowmesh/ingestion prisma:generate
 
+# ─── Config service ──────────────────────────────────────────────────────────
+
+config-dev:
+	pnpm --filter @flowmesh/config-service dev
+
+config-migrate-create:
+	pnpm --filter @flowmesh/config-service prisma:migrate:create
+
+config-migrate:
+	pnpm --filter @flowmesh/config-service prisma:migrate:deploy
+	pnpm --filter @flowmesh/config-service prisma:generate
+
+config-generate:
+	pnpm --filter @flowmesh/config-service prisma:generate
+
+gen-encryption-key:
+	@echo "CONFIG_ENCRYPTION_KEY=$$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
+
 # ─── Testing ─────────────────────────────────────────────────────────────────
 
 test:
@@ -86,4 +104,5 @@ env-setup:
 
 .PHONY: infra-up infra-down infra-logs infra-psql up down down-v logs \
         ingestion-dev ingestion-migrate-create ingestion-migrate ingestion-generate \
+        config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         test test-integration test-coverage test-watch install gen-jwt-secret env-setup
