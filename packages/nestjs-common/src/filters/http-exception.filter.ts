@@ -14,7 +14,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const req = ctx.getRequest<Request>()
     const res = ctx.getResponse<Response>()
 
-    // Middleware guarantees this header is always present — no body fallback needed
     const correlationId = req.headers[CORRELATION_ID_HEADER] as string | undefined
 
     let statusCode: number

@@ -47,6 +47,7 @@ ingestion-generate:
 # ─── Config service ──────────────────────────────────────────────────────────
 
 config-dev:
+	pnpm --filter @flowmesh/config-service prisma:generate
 	pnpm --filter @flowmesh/config-service dev
 
 config-migrate-create:

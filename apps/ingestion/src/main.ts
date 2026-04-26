@@ -3,7 +3,7 @@ import { ValidationPipe } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Logger } from 'nestjs-pino'
 import { AppModule } from './app.module'
-import { HttpExceptionFilter } from './common/filters/http-exception.filter'
+import { HttpExceptionFilter } from '@flowmesh/nestjs-common'
 
 // Give the load balancer time to drain connections before NestJS closes the server.
 // Kubernetes sends SIGTERM then waits up to terminationGracePeriodSeconds before SIGKILL.

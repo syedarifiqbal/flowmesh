@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import request from 'supertest'
 import * as amqplib from 'amqplib'
 import { AppModule } from '../app.module'
-import { HttpExceptionFilter } from '../common/filters/http-exception.filter'
+import { HttpExceptionFilter } from '@flowmesh/nestjs-common'
 import { PrismaService } from '../prisma/prisma.service'
 
 const WORKSPACE_ID = randomUUID()

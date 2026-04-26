@@ -5,9 +5,7 @@ import { PrismaModule } from './prisma/prisma.module'
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module'
 import { RedisModule } from './redis/redis.module'
 import { IngestionModule } from './ingestion/ingestion.module'
-import { HealthModule } from './health/health.module'
-import { HttpExceptionFilter } from './common/filters/http-exception.filter'
-import { CorrelationIdMiddleware, CORRELATION_ID_HEADER } from './common/middleware/correlation-id.middleware'
+import { HealthModule, HttpExceptionFilter, CorrelationIdMiddleware, CORRELATION_ID_HEADER } from '@flowmesh/nestjs-common'
 
 const isDev = process.env.NODE_ENV !== 'production'
 

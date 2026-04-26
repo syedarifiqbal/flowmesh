@@ -16,6 +16,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
+    "@flowmesh/nestjs-common": "workspace:*",
     "@flowmesh/shared-types": "workspace:*",
     "@nestjs/common": "^10.3.0",
     "@nestjs/config": "^4.0.4",
