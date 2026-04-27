@@ -2,11 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { randomUUID } from 'crypto'
 import { NotFoundException } from '@nestjs/common'
 import { PinoLogger } from 'nestjs-pino'
+import { CacheKeyFactory } from '@flowmesh/nestjs-common'
 import { PipelineService } from './pipeline.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { RedisService } from '../redis/redis.service'
 import { CreatePipelineDto } from './dto/create-pipeline.dto'
 import { UpdatePipelineDto } from './dto/update-pipeline.dto'
+
+const cacheKey = new CacheKeyFactory('config', 'pipeline')
 
 const mockLogger = {
   info: vi.fn(),
@@ -71,6 +74,7 @@ describe('PipelineService', () => {
     service = new PipelineService(
       prisma as unknown as PrismaService,
       redis as unknown as RedisService,
+      cacheKey,
       mockLogger,
     )
   })
@@ -83,7 +87,7 @@ describe('PipelineService', () => {
       const result = await service.create(WORKSPACE_ID, makeDto())
 
       expect(prisma.pipeline.create).toHaveBeenCalledOnce()
-      expect(redis.del).toHaveBeenCalledWith(`config:pipelines:${WORKSPACE_ID}`)
+      expect(redis.del).toHaveBeenCalledWith(cacheKey.list(WORKSPACE_ID))
       expect(result.id).toBe(created.id)
     })
 
@@ -159,8 +163,8 @@ describe('PipelineService', () => {
 
       expect(prisma.pipeline.update).toHaveBeenCalledOnce()
       expect(redis.del).toHaveBeenCalledWith(
-        `config:pipelines:${WORKSPACE_ID}`,
-        `config:pipeline:${WORKSPACE_ID}:${pipeline.id}`,
+        cacheKey.list(WORKSPACE_ID),
+        cacheKey.one(pipeline.id, WORKSPACE_ID),
       )
       expect(result.name).toBe('Updated')
     })

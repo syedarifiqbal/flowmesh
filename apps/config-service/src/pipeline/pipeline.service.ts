@@ -1,21 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
+import { CacheKeyFactory } from '@flowmesh/nestjs-common'
 import { PrismaService } from '../prisma/prisma.service'
 import { RedisService, PIPELINE_CACHE_TTL } from '../redis/redis.service'
 import { CreatePipelineDto } from './dto/create-pipeline.dto'
 import { UpdatePipelineDto } from './dto/update-pipeline.dto'
-
-const cacheKey = (workspaceId: string, pipelineId: string) =>
-  `config:pipeline:${workspaceId}:${pipelineId}`
-
-const listCacheKey = (workspaceId: string) =>
-  `config:pipelines:${workspaceId}`
 
 @Injectable()
 export class PipelineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly cacheKey: CacheKeyFactory,
     @InjectPinoLogger(PipelineService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -32,12 +28,13 @@ export class PipelineService {
     })
 
     await this.invalidateWorkspaceCache(workspaceId)
-    this.logger.info({ pipelineId: pipeline.id, workspaceId }, 'Pipeline created')
+    this.logger.info({ pipelineId: pipeline.id, workspaceId }, 'pipeline created')
     return pipeline
   }
 
   async findAll(workspaceId: string) {
-    const cached = await this.redis.get(listCacheKey(workspaceId))
+    const key = this.cacheKey.list(workspaceId)
+    const cached = await this.redis.get(key)
     if (cached) return JSON.parse(cached)
 
     const pipelines = await this.prisma.pipeline.findMany({
@@ -45,12 +42,13 @@ export class PipelineService {
       orderBy: { createdAt: 'desc' },
     })
 
-    await this.redis.set(listCacheKey(workspaceId), JSON.stringify(pipelines), PIPELINE_CACHE_TTL)
+    await this.redis.set(key, JSON.stringify(pipelines), PIPELINE_CACHE_TTL)
     return pipelines
   }
 
   async findOne(workspaceId: string, id: string) {
-    const cached = await this.redis.get(cacheKey(workspaceId, id))
+    const key = this.cacheKey.one(id, workspaceId)
+    const cached = await this.redis.get(key)
     if (cached) return JSON.parse(cached)
 
     const pipeline = await this.prisma.pipeline.findFirst({
@@ -59,7 +57,7 @@ export class PipelineService {
 
     if (!pipeline) throw new NotFoundException(`Pipeline ${id} not found`)
 
-    await this.redis.set(cacheKey(workspaceId, id), JSON.stringify(pipeline), PIPELINE_CACHE_TTL)
+    await this.redis.set(key, JSON.stringify(pipeline), PIPELINE_CACHE_TTL)
     return pipeline
   }
 
@@ -78,7 +76,7 @@ export class PipelineService {
     })
 
     await this.invalidateWorkspaceCache(workspaceId, id)
-    this.logger.info({ pipelineId: id, workspaceId }, 'Pipeline updated')
+    this.logger.info({ pipelineId: id, workspaceId }, 'pipeline updated')
     return pipeline
   }
 
@@ -86,7 +84,7 @@ export class PipelineService {
     await this.assertExists(workspaceId, id)
     await this.prisma.pipeline.delete({ where: { id } })
     await this.invalidateWorkspaceCache(workspaceId, id)
-    this.logger.info({ pipelineId: id, workspaceId }, 'Pipeline deleted')
+    this.logger.info({ pipelineId: id, workspaceId }, 'pipeline deleted')
   }
 
   private async assertExists(workspaceId: string, id: string) {
@@ -95,8 +93,8 @@ export class PipelineService {
   }
 
   private async invalidateWorkspaceCache(workspaceId: string, pipelineId?: string) {
-    const keys: string[] = [listCacheKey(workspaceId)]
-    if (pipelineId) keys.push(cacheKey(workspaceId, pipelineId))
+    const keys: string[] = [this.cacheKey.list(workspaceId)]
+    if (pipelineId) keys.push(this.cacheKey.one(pipelineId, workspaceId))
     await this.redis.del(...keys)
   }
 }
