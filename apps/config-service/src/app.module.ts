@@ -6,7 +6,7 @@ import { RedisModule } from './redis/redis.module'
 import { EncryptionModule } from './encryption/encryption.module'
 import { PipelineModule } from './pipeline/pipeline.module'
 import { DestinationModule } from './destination/destination.module'
-import { HealthModule, HttpExceptionFilter, CorrelationIdMiddleware, CORRELATION_ID_HEADER } from '@flowmesh/nestjs-common'
+import { HealthModule, HttpExceptionFilter, CorrelationIdMiddleware, CORRELATION_ID_HEADER, CacheKeyModule } from '@flowmesh/nestjs-common'
 
 const isDev = process.env.NODE_ENV !== 'production'
 
@@ -30,6 +30,7 @@ const isDev = process.env.NODE_ENV !== 'production'
         },
       },
     }),
+    CacheKeyModule.forRoot({ service: 'config' }),
     PrismaModule,
     RedisModule,
     EncryptionModule,

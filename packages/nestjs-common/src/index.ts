@@ -2,3 +2,5 @@ export { CORRELATION_ID_HEADER, CorrelationIdMiddleware } from './middleware/cor
 export { HttpExceptionFilter } from './filters/http-exception.filter'
 export { HealthController } from './health/health.controller'
 export { HealthModule } from './health/health.module'
+export { CacheKeyFactory } from './cache/cache-key.factory'
+export { CacheKeyModule, CACHE_SERVICE_NAME } from './cache/cache-key.module'
