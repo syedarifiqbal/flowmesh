@@ -1,11 +1,12 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { LoggerModule } from 'nestjs-pino'
 import { AppConfigModule } from './config/config.module'
 import { PrismaModule } from './prisma/prisma.module'
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module'
 import { RedisModule } from './redis/redis.module'
 import { IngestionModule } from './ingestion/ingestion.module'
-import { HealthModule, HttpExceptionFilter, CorrelationIdMiddleware, CORRELATION_ID_HEADER } from '@flowmesh/nestjs-common'
+import { HealthModule, HttpExceptionFilter, CorrelationIdMiddleware, CORRELATION_ID_HEADER, RabbitMqModule } from '@flowmesh/nestjs-common'
 
 const isDev = process.env.NODE_ENV !== 'production'
 
@@ -30,6 +31,10 @@ const isDev = process.env.NODE_ENV !== 'production'
       },
     }),
     PrismaModule,
+    RabbitMqModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({ url: config.get<string>('RABBITMQ_URL')! }),
+      inject: [ConfigService],
+    }),
     RabbitMQModule,
     RedisModule,
     IngestionModule,

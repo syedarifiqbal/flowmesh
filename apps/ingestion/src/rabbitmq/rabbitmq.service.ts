@@ -1,34 +1,29 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
-import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
-import amqplib, { ChannelModel, ConfirmChannel } from 'amqplib'
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common'
+import { RabbitMqConnection } from '@flowmesh/nestjs-common'
+import { ConfirmChannel } from 'amqplib'
 
 const EXCHANGE = 'flowmesh.events'
 const ROUTING_KEY = 'event.ingested'
-const MAX_RETRIES = 10
+const MAX_CHANNEL_RETRIES = 10
 const BASE_DELAY_MS = 1000
 const MAX_DELAY_MS = 30000
 
 @Injectable()
 export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
-  private connection!: ChannelModel
   private channel!: ConfirmChannel
   private shuttingDown = false
+  private readonly logger = new Logger(RabbitMQService.name)
 
-  constructor(
-    private readonly config: ConfigService,
-    @InjectPinoLogger(RabbitMQService.name) private readonly logger: PinoLogger,
-  ) {}
+  constructor(private readonly connection: RabbitMqConnection) {}
 
   async onModuleInit() {
-    await this.connect()
+    await this.setupChannel()
   }
 
   async onModuleDestroy() {
     this.shuttingDown = true
     try {
       await this.channel?.close()
-      await this.connection?.close()
     } catch {
       // ignore errors during shutdown
     }
@@ -55,65 +50,33 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     })
   }
 
-  private async connect(attempt = 0): Promise<void> {
-    const url = this.config.get<string>('RABBITMQ_URL')!
+  private async setupChannel(): Promise<void> {
+    const conn = this.connection.getConnection()
+    this.channel = await conn.createConfirmChannel()
+    await this.channel.assertExchange(EXCHANGE, 'topic', { durable: true })
 
+    this.channel.on('close', () => {
+      if (!this.shuttingDown) {
+        this.logger.warn('RabbitMQ channel closed — recreating...')
+        this.recreateChannel().catch((err: Error) => {
+          this.logger.error(`RabbitMQ channel recreation failed permanently: ${err.message}`)
+        })
+      }
+    })
+
+    this.logger.log('RabbitMQ channel ready')
+  }
+
+  private async recreateChannel(attempt = 0): Promise<void> {
     try {
-      this.connection = await amqplib.connect(url)
-      this.channel = await this.connection.createConfirmChannel()
-      await this.channel.assertExchange(EXCHANGE, 'topic', { durable: true })
-
-      this.connection.on('close', () => {
-        if (!this.shuttingDown) {
-          this.logger.warn('RabbitMQ connection closed — reconnecting...')
-          this.connect().catch((err: Error) => {
-            this.logger.error(`RabbitMQ reconnection failed permanently: ${err.message}`)
-          })
-        }
-      })
-
-      this.connection.on('error', (err: Error) => {
-        if (!this.shuttingDown) {
-          this.logger.error(`RabbitMQ connection error: ${err.message}`)
-        }
-      })
-
-      this.channel.on('close', () => {
-        if (!this.shuttingDown) {
-          this.logger.warn('RabbitMQ channel closed — recreating...')
-          this.recreateChannel().catch((err: Error) => {
-            this.logger.error(`RabbitMQ channel recreation failed: ${err.message}`)
-          })
-        }
-      })
-
-      this.logger.info('Connected to RabbitMQ')
+      await this.setupChannel()
     } catch (err) {
       if (this.shuttingDown) return
-
-      if (attempt >= MAX_RETRIES) {
-        this.logger.error('RabbitMQ max reconnect attempts reached — giving up')
-        throw err
-      }
+      if (attempt >= MAX_CHANNEL_RETRIES) throw err
 
       const delay = Math.min(BASE_DELAY_MS * 2 ** attempt, MAX_DELAY_MS)
-      this.logger.warn(`RabbitMQ unavailable — retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`)
-      await this.sleep(delay)
-      await this.connect(attempt + 1)
+      await new Promise((resolve) => setTimeout(resolve, delay))
+      await this.recreateChannel(attempt + 1)
     }
-  }
-
-  private async recreateChannel(): Promise<void> {
-    try {
-      this.channel = await this.connection.createConfirmChannel()
-      await this.channel.assertExchange(EXCHANGE, 'topic', { durable: true })
-      this.logger.info('RabbitMQ channel recreated')
-    } catch (err) {
-      this.logger.error(`Failed to recreate channel: ${(err as Error).message}`)
-    }
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }

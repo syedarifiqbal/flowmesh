@@ -1,17 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ConfigService } from '@nestjs/config'
-import { PinoLogger } from 'nestjs-pino'
 import { RabbitMQService } from './rabbitmq.service'
-import * as amqplib from 'amqplib'
-
-const mockLogger = {
-  info: vi.fn(),
-  debug: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-} as unknown as PinoLogger
-
-vi.mock('amqplib')
+import { RabbitMqConnection } from '@flowmesh/nestjs-common'
 
 const makeChannel = () => ({
   assertExchange: vi.fn().mockResolvedValue(undefined),
@@ -20,14 +9,17 @@ const makeChannel = () => ({
   on: vi.fn(),
 })
 
-const makeConnection = (channel: ReturnType<typeof makeChannel>) => ({
+const makeAmqpConnection = (channel: ReturnType<typeof makeChannel>) => ({
   createConfirmChannel: vi.fn().mockResolvedValue(channel),
-  close: vi.fn().mockResolvedValue(undefined),
-  on: vi.fn(),
 })
 
-const makeConfig = (url = 'amqp://localhost') =>
-  ({ get: vi.fn().mockReturnValue(url) }) as unknown as ConfigService
+const makeConnection = (channel: ReturnType<typeof makeChannel>) => {
+  const amqpConn = makeAmqpConnection(channel)
+  return {
+    rabbitMqConn: { getConnection: vi.fn().mockReturnValue(amqpConn) } as unknown as RabbitMqConnection,
+    amqpConn,
+  }
+}
 
 describe('RabbitMQService', () => {
   beforeEach(() => {
@@ -39,24 +31,23 @@ describe('RabbitMQService', () => {
     vi.useRealTimers()
   })
 
-  it('connects and checks exchange on init', async () => {
+  it('sets up channel and asserts exchange on init', async () => {
     const channel = makeChannel()
-    const connection = makeConnection(channel)
-    vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
+    const { rabbitMqConn, amqpConn } = makeConnection(channel)
 
-    const service = new RabbitMQService(makeConfig(), mockLogger)
+    const service = new RabbitMQService(rabbitMqConn)
     await service.onModuleInit()
 
-    expect(amqplib.connect).toHaveBeenCalledWith('amqp://localhost')
+    expect(rabbitMqConn.getConnection).toHaveBeenCalled()
+    expect(amqpConn.createConfirmChannel).toHaveBeenCalled()
     expect(channel.assertExchange).toHaveBeenCalledWith('flowmesh.events', 'topic', { durable: true })
   })
 
   it('publishes message with correct exchange and options', async () => {
     const channel = makeChannel()
-    const connection = makeConnection(channel)
-    vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
+    const { rabbitMqConn } = makeConnection(channel)
 
-    const service = new RabbitMQService(makeConfig(), mockLogger)
+    const service = new RabbitMQService(rabbitMqConn)
     await service.onModuleInit()
     await service.publish({ meta: {}, payload: {} })
 
@@ -68,155 +59,75 @@ describe('RabbitMQService', () => {
     expect(options.contentType).toBe('application/json')
   })
 
-  it('retries connection with backoff when RabbitMQ is unavailable', async () => {
+  it('closes channel on destroy', async () => {
     const channel = makeChannel()
-    const connection = makeConnection(channel)
-    vi.mocked(amqplib.connect)
-      .mockRejectedValueOnce(new Error('ECONNREFUSED'))
-      .mockRejectedValueOnce(new Error('ECONNREFUSED'))
-      .mockResolvedValue(connection as any)
+    const { rabbitMqConn } = makeConnection(channel)
 
-    const service = new RabbitMQService(makeConfig(), mockLogger)
-    const initPromise = service.onModuleInit()
-
-    await vi.runAllTimersAsync()
-    await initPromise
-
-    expect(amqplib.connect).toHaveBeenCalledTimes(3)
-  })
-
-  it('reconnects automatically when connection closes unexpectedly', async () => {
-    const channel = makeChannel()
-    const connection = makeConnection(channel)
-    vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
-
-    const service = new RabbitMQService(makeConfig(), mockLogger)
-    await service.onModuleInit()
-
-    const closeHandler = connection.on.mock.calls.find(([event]) => event === 'close')?.[1]
-    expect(closeHandler).toBeDefined()
-
-    // capture the reconnect promise before the handler discards it
-    let reconnectResolve!: () => void
-    const reconnectPromise = new Promise<void>((res) => { reconnectResolve = res })
-    vi.mocked(amqplib.connect).mockImplementationOnce(async () => {
-      reconnectResolve()
-      return connection as any
-    })
-
-    closeHandler()
-    await reconnectPromise
-
-    expect(amqplib.connect).toHaveBeenCalledTimes(2)
-  })
-
-  it('does not reconnect when shutting down', async () => {
-    const channel = makeChannel()
-    const connection = makeConnection(channel)
-    vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
-
-    const service = new RabbitMQService(makeConfig(), mockLogger)
-    await service.onModuleInit()
-    await service.onModuleDestroy()
-
-    const closeHandler = connection.on.mock.calls.find(([event]) => event === 'close')?.[1]
-    closeHandler?.()
-
-    // give any async reconnect attempt a tick to start — none should
-    await Promise.resolve()
-    expect(amqplib.connect).toHaveBeenCalledTimes(1)
-  })
-
-  it('closes channel and connection cleanly on destroy', async () => {
-    const channel = makeChannel()
-    const connection = makeConnection(channel)
-    vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
-
-    const service = new RabbitMQService(makeConfig(), mockLogger)
+    const service = new RabbitMQService(rabbitMqConn)
     await service.onModuleInit()
     await service.onModuleDestroy()
 
     expect(channel.close).toHaveBeenCalledOnce()
-    expect(connection.close).toHaveBeenCalledOnce()
-  })
-
-  it('throws after max retry attempts are exhausted', async () => {
-    vi.mocked(amqplib.connect).mockRejectedValue(new Error('ECONNREFUSED'))
-
-    const service = new RabbitMQService(makeConfig(), mockLogger)
-    const initPromise = service.onModuleInit()
-
-    // attach rejection handler before running timers — prevents unhandled rejection
-    // if the promise rejects during timer flush before we await it
-    const assertion = expect(initPromise).rejects.toThrow('ECONNREFUSED')
-
-    await vi.runAllTimersAsync()
-    await assertion
-
-    expect(amqplib.connect).toHaveBeenCalledTimes(11) // initial + 10 retries
   })
 
   it('recreates channel when channel closes unexpectedly', async () => {
     const channel = makeChannel()
-    const connection = makeConnection(channel)
-    vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
+    const { rabbitMqConn, amqpConn } = makeConnection(channel)
 
-    const service = new RabbitMQService(makeConfig(), mockLogger)
+    const service = new RabbitMQService(rabbitMqConn)
     await service.onModuleInit()
-
-    const channelCloseHandler = channel.on.mock.calls.find(([event]) => event === 'close')?.[1]
-    expect(channelCloseHandler).toBeDefined()
 
     let recreateResolve!: () => void
     const recreatePromise = new Promise<void>((res) => { recreateResolve = res })
-    connection.createConfirmChannel.mockImplementationOnce(async () => {
+    amqpConn.createConfirmChannel.mockImplementationOnce(async () => {
       recreateResolve()
       return channel as any
     })
 
+    const channelCloseHandler = channel.on.mock.calls.find(([event]) => event === 'close')?.[1]
+    expect(channelCloseHandler).toBeDefined()
     channelCloseHandler!()
     await recreatePromise
 
-    // createConfirmChannel called once on init, once on channel recreation
-    expect(connection.createConfirmChannel).toHaveBeenCalledTimes(2)
+    expect(amqpConn.createConfirmChannel).toHaveBeenCalledTimes(2)
   })
 
   it('does not recreate channel when shutting down', async () => {
     const channel = makeChannel()
-    const connection = makeConnection(channel)
-    vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
+    const { rabbitMqConn, amqpConn } = makeConnection(channel)
 
-    const service = new RabbitMQService(makeConfig(), mockLogger)
+    const service = new RabbitMQService(rabbitMqConn)
     await service.onModuleInit()
     await service.onModuleDestroy()
 
     const channelCloseHandler = channel.on.mock.calls.find(([event]) => event === 'close')?.[1]
     channelCloseHandler?.()
-
     await Promise.resolve()
-    expect(connection.createConfirmChannel).toHaveBeenCalledTimes(1)
+
+    expect(amqpConn.createConfirmChannel).toHaveBeenCalledTimes(1)
   })
 
-  it('logs error when channel recreation fails', async () => {
+  it('retries channel setup with backoff when recreation fails', async () => {
     const channel = makeChannel()
-    const connection = makeConnection(channel)
-    vi.mocked(amqplib.connect).mockResolvedValue(connection as any)
+    const { rabbitMqConn, amqpConn } = makeConnection(channel)
 
-    const service = new RabbitMQService(makeConfig(), mockLogger)
+    const service = new RabbitMQService(rabbitMqConn)
     await service.onModuleInit()
 
-    const channelCloseHandler = channel.on.mock.calls.find(([event]) => event === 'close')?.[1]
+    amqpConn.createConfirmChannel
+      .mockRejectedValueOnce(new Error('channel error'))
+      .mockRejectedValueOnce(new Error('channel error'))
+      .mockResolvedValue(channel as any)
 
-    let errorResolve!: () => void
-    const errorPromise = new Promise<void>((res) => { errorResolve = res })
-    connection.createConfirmChannel.mockImplementationOnce(async () => {
-      throw new Error('channel creation failed')
+    const channelCloseHandler = channel.on.mock.calls.find(([event]) => event === 'close')?.[1]
+    const recreatePromise = new Promise<void>((res) => {
+      channel.assertExchange.mockImplementationOnce(async () => { res() })
     })
-    vi.mocked(mockLogger.error).mockImplementationOnce(() => { errorResolve() })
 
     channelCloseHandler!()
-    await errorPromise
+    await vi.runAllTimersAsync()
+    await recreatePromise
 
-    expect(mockLogger.error).toHaveBeenCalled()
+    expect(amqpConn.createConfirmChannel).toHaveBeenCalledTimes(4) // 1 init + 2 failures + 1 success
   })
 })
