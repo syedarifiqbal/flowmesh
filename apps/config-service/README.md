@@ -1,6 +1,6 @@
 # Config Service
 
-The config service stores workspace-scoped pipeline definitions and destination credentials for Flowmesh.
+The config service stores workspace-scoped pipeline definitions and destination credentials for FlowMesh.
 
 ## Responsibilities
 
