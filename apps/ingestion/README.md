@@ -151,7 +151,7 @@ The service validates these environment variables at startup:
 - `DATABASE_URL`: PostgreSQL connection string, must include `?schema=ingestion`
 - `RABBITMQ_URL`: RabbitMQ connection string used for publishing accepted events
 - `REDIS_PERSISTENT_URL`: Redis connection string used for idempotency state
-- `REDIS_EPHEMERAL_URL`: Redis connection string reserved for ephemeral workloads in this service environment
+- `REDIS_EPHEMERAL_URL`: Required by startup validation, but not actively used by this service in the current version
 
 ## Run locally
 
