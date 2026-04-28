@@ -12,6 +12,10 @@ Shared NestJS infrastructure for FlowMesh services.
 - `CacheKeyModule`
 - `CacheKeyFactory`
 - `CACHE_SERVICE_NAME`
+- `RabbitMqModule`
+- `RabbitMqConnection`
+- `RABBITMQ_OPTIONS`
+- `RabbitMqOptions`
 
 ## Install in a service
 
@@ -194,6 +198,60 @@ With that setup, injected factories generate keys like:
 - `config:pipeline:ws-123:list`
 - `config:pipeline:ws-123:abc-def`
 - `config:destination:ws-123:list`
+
+## RabbitMqModule, RabbitMqConnection, RABBITMQ_OPTIONS, and RabbitMqOptions
+
+Use `RabbitMqModule.forRootAsync()` once in the root module to register a shared RabbitMQ connection globally. The async registration pattern matches `CacheKeyModule`: configure it once in `app.module.ts`, then inject `RabbitMqConnection` anywhere a service needs an AMQP connection or channel.
+
+```ts
+import { Module } from '@nestjs/common'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+import { RabbitMqModule } from '@flowmesh/nestjs-common'
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    RabbitMqModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        uri: config.getOrThrow<string>('RABBITMQ_URL'),
+        exchange: config.get<string>('RABBITMQ_EXCHANGE') ?? 'flowmesh',
+        prefetch: Number(config.get<string>('RABBITMQ_PREFETCH') ?? '10'),
+      }),
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+`RabbitMqOptions` is the options shape returned by the async factory, and `RABBITMQ_OPTIONS` is the injection token behind that configuration for advanced tests or custom module wiring. Most services should not inject the token directly.
+
+Inject `RabbitMqConnection` into the service that needs a connection or channel.
+
+```ts
+import { Injectable } from '@nestjs/common'
+import { RabbitMqConnection } from '@flowmesh/nestjs-common'
+
+@Injectable()
+export class EventPublisher {
+  constructor(private readonly rabbitMq: RabbitMqConnection) {}
+
+  async publishRoutingKey(routingKey: string, payload: Record<string, unknown>) {
+    const connection = this.rabbitMq.getConnection()
+    const channel = await connection.createChannel()
+
+    await channel.publish(
+      'flowmesh',
+      routingKey,
+      Buffer.from(JSON.stringify(payload)),
+    )
+
+    await channel.close()
+  }
+}
+```
+
+`RabbitMqConnection` owns the shared AMQP connection lifecycle for the app. It connects during module startup, closes cleanly during shutdown, and exposes the underlying connection through `getConnection()` so higher-level services can create channels when needed.
 
 ## Logger constraint inside this package
 
