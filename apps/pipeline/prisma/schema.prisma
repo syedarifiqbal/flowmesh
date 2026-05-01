@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model PipelineExecution {
+  id          String    @id @default(uuid())
+  workspaceId String    @map("workspace_id")
+  pipelineId  String    @map("pipeline_id")
+  eventId     String    @map("event_id")
+  messageId   String    @map("message_id")
+  status      String
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  error       String?
+
+  @@index([workspaceId])
+  @@index([eventId])
+  @@index([messageId])
+  @@map("pipeline_executions")
+}
