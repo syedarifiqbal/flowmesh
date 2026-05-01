@@ -44,6 +44,22 @@ ingestion-migrate:
 ingestion-generate:
 	pnpm --filter @flowmesh/ingestion prisma:generate
 
+# ─── Pipeline service ────────────────────────────────────────────────────────
+
+pipeline-dev:
+	pnpm --filter @flowmesh/pipeline prisma:generate
+	pnpm --filter @flowmesh/pipeline dev
+
+pipeline-migrate-create:
+	pnpm --filter @flowmesh/pipeline prisma:migrate:create
+
+pipeline-migrate:
+	pnpm --filter @flowmesh/pipeline prisma:migrate:deploy
+	pnpm --filter @flowmesh/pipeline prisma:generate
+
+pipeline-generate:
+	pnpm --filter @flowmesh/pipeline prisma:generate
+
 # ─── Config service ──────────────────────────────────────────────────────────
 
 config-dev:
@@ -105,5 +121,6 @@ env-setup:
 
 .PHONY: infra-up infra-down infra-logs infra-psql up down down-v logs \
         ingestion-dev ingestion-migrate-create ingestion-migrate ingestion-generate \
+        pipeline-dev pipeline-migrate-create pipeline-migrate pipeline-generate \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         test test-integration test-coverage test-watch install gen-jwt-secret env-setup

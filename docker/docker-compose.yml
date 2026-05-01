@@ -167,14 +167,21 @@ services:
     env_file: ../.env
     environment:
       PORT: 3002
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=pipeline
       RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+      REDIS_PERSISTENT_URL: redis://redis-persistent:6379
       CONFIG_SERVICE_URL: http://config-service:3005
     depends_on:
       rabbitmq:
         condition: service_healthy
       pgbouncer:
+        condition: service_started
+      redis-ephemeral:
+        condition: service_healthy
+      redis-persistent:
+        condition: service_healthy
+      config-service:
         condition: service_started
     networks:
       - flowmesh

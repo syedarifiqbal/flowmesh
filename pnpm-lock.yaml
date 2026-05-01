@@ -200,6 +200,97 @@ importers:
         specifier: ^5.3.0
         version: 5.9.3
 
+  apps/pipeline:
+    dependencies:
+      '@flowmesh/nestjs-common':
+        specifier: workspace:*
+        version: link:../../packages/nestjs-common
+      '@flowmesh/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@nestjs/common':
+        specifier: ^10.3.0
+        version: 10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/config':
+        specifier: ^4.0.4
+        version: 4.0.4(@nestjs/common@10.4.22)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^10.3.0
+        version: 10.4.22(@nestjs/common@10.4.22)(@nestjs/platform-express@10.4.22)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express':
+        specifier: ^10.3.0
+        version: 10.4.22(@nestjs/common@10.4.22)(@nestjs/core@10.4.22)
+      '@prisma/client':
+        specifier: ^5.10.0
+        version: 5.22.0(prisma@5.22.0)
+      amqplib:
+        specifier: ^0.10.3
+        version: 0.10.9
+      class-transformer:
+        specifier: ^0.5.1
+        version: 0.5.1
+      class-validator:
+        specifier: ^0.14.1
+        version: 0.14.4
+      ioredis:
+        specifier: ^5.3.2
+        version: 5.10.1
+      joi:
+        specifier: ^18.1.2
+        version: 18.1.2
+      nestjs-pino:
+        specifier: ^3.5.0
+        version: 3.5.0(@nestjs/common@10.4.22)(pino-http@8.6.1)
+      opossum:
+        specifier: ^8.1.1
+        version: 8.5.0
+      pino:
+        specifier: '8'
+        version: 8.21.0
+      pino-http:
+        specifier: ^8.6.1
+        version: 8.6.1
+      reflect-metadata:
+        specifier: ^0.2.0
+        version: 0.2.2
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.2
+      uuid:
+        specifier: ^9.0.1
+        version: 9.0.1
+    devDependencies:
+      '@nestjs/cli':
+        specifier: ^10.3.0
+        version: 10.4.9(@swc/core@1.15.30)
+      '@nestjs/testing':
+        specifier: ^10.3.0
+        version: 10.4.22(@nestjs/common@10.4.22)(@nestjs/core@10.4.22)(@nestjs/platform-express@10.4.22)
+      '@types/amqplib':
+        specifier: ^0.10.4
+        version: 0.10.8
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.39
+      '@types/opossum':
+        specifier: ^8.1.6
+        version: 8.1.9
+      '@types/uuid':
+        specifier: ^9.0.7
+        version: 9.0.8
+      pino-pretty:
+        specifier: ^10.3.1
+        version: 10.3.1
+      prisma:
+        specifier: ^5.10.0
+        version: 5.22.0
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+
   packages/nestjs-common:
     dependencies:
       express:
@@ -1565,6 +1656,12 @@ packages:
       undici-types: 6.21.0
     dev: true
 
+  /@types/opossum@8.1.9:
+    resolution: {integrity: sha512-Jm/tYxuJFefiwRYs+/EOsUP3ktk0c8siMgAHPLnA4PXF4wKghzcjqf88dY+Xii5jId5Txw4JV0FMKTpjbd7KJA==}
+    dependencies:
+      '@types/node': 20.19.39
+    dev: true
+
   /@types/qs@6.15.0:
     resolution: {integrity: sha512-JawvT8iBVWpzTrz3EGw9BTQFg3BQNmwERdKE22vlTxawwtbyUSlMppvZYKLZzB5zgACXdXxbD3m1bXaMqP/9ow==}
     dev: true
@@ -1608,6 +1705,10 @@ packages:
     dependencies:
       '@types/methods': 1.1.4
       '@types/superagent': 8.1.9
+    dev: true
+
+  /@types/uuid@9.0.8:
+    resolution: {integrity: sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA==}
     dev: true
 
   /@types/validator@13.15.10:
@@ -3617,6 +3718,11 @@ packages:
       mimic-fn: 2.1.0
     dev: true
 
+  /opossum@8.5.0:
+    resolution: {integrity: sha512-LZNvs+p9/ZbG4oN6unnjh4hTxkB0dyHKI2p7azVt8w+//GKDpfHss6WR7KebbpzGEssYwtSd8Mvwxqcmxg10NA==}
+    engines: {node: ^24 || ^22 || ^21 || ^20 || ^18 || ^16}
+    dev: false
+
   /ora@5.4.1:
     resolution: {integrity: sha512-5b6Y85tPxZZ7QytO+BQzysW31HJku27cRIlkbAXaNx+BdcVi+LlRFmVXzeF6a7JCwJpyw5c4b+YSVImQIrBpuQ==}
     engines: {node: '>=10'}
@@ -4539,6 +4645,12 @@ packages:
   /utils-merge@1.0.1:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
     engines: {node: '>= 0.4.0'}
+
+  /uuid@9.0.1:
+    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+    hasBin: true
+    dev: false
 
   /validator@13.15.35:
     resolution: {integrity: sha512-TQ5pAGhd5whStmqWvYF4OjQROlmv9SMFVt37qoCBdqRffuuklWYQlCNnEs2ZaIBD1kZRNnikiZOS1eqgkar0iw==}
