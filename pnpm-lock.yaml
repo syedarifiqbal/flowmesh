@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  reflect-metadata: 0.2.2
+
 importers:
 
   .:
@@ -81,7 +84,7 @@ importers:
         specifier: ^8.6.1
         version: 8.6.1
       reflect-metadata:
-        specifier: ^0.2.0
+        specifier: 0.2.2
         version: 0.2.2
       rxjs:
         specifier: ^7.8.1
@@ -163,7 +166,7 @@ importers:
         specifier: ^8.6.1
         version: 8.6.1
       reflect-metadata:
-        specifier: ^0.2.0
+        specifier: 0.2.2
         version: 0.2.2
       rxjs:
         specifier: ^7.8.1
@@ -251,7 +254,7 @@ importers:
         specifier: ^8.6.1
         version: 8.6.1
       reflect-metadata:
-        specifier: ^0.2.0
+        specifier: 0.2.2
         version: 0.2.2
       rxjs:
         specifier: ^7.8.1
@@ -957,7 +960,7 @@ packages:
     peerDependencies:
       class-transformer: '*'
       class-validator: '*'
-      reflect-metadata: ^0.1.12 || ^0.2.0
+      reflect-metadata: 0.2.2
       rxjs: ^7.1.0
     peerDependenciesMeta:
       class-transformer:
@@ -997,7 +1000,7 @@ packages:
       '@nestjs/microservices': ^10.0.0
       '@nestjs/platform-express': ^10.0.0
       '@nestjs/websockets': ^10.0.0
-      reflect-metadata: ^0.1.12 || ^0.2.0
+      reflect-metadata: 0.2.2
       rxjs: ^7.1.0
     peerDependenciesMeta:
       '@nestjs/microservices':
