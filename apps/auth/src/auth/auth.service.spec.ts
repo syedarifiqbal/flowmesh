@@ -9,7 +9,6 @@ import * as bcrypt from 'bcrypt'
 
 const WORKSPACE_ID = 'ws-uuid-1'
 const USER_ID = 'user-uuid-1'
-const TOKEN_HASH = 'abc123hash'
 
 const makeUser = (overrides = {}) => ({
   id: USER_ID,
@@ -31,7 +30,7 @@ const makeWorkspace = () => ({
 const makeRefreshToken = (overrides = {}) => ({
   id: 'rt-uuid-1',
   userId: USER_ID,
-  tokenHash: TOKEN_HASH,
+  tokenHash: 'abc123hash',
   expiresAt: new Date(Date.now() + 7 * 86400 * 1000),
   createdAt: new Date(),
   revokedAt: null,
