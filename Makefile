@@ -79,6 +79,22 @@ config-generate:
 gen-encryption-key:
 	@echo "CONFIG_ENCRYPTION_KEY=$$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
 
+# ─── Auth service ────────────────────────────────────────────────────────────
+
+auth-dev:
+	pnpm --filter @flowmesh/auth prisma:generate
+	pnpm --filter @flowmesh/auth dev
+
+auth-migrate-create:
+	pnpm --filter @flowmesh/auth prisma:migrate:create
+
+auth-migrate:
+	pnpm --filter @flowmesh/auth prisma:migrate:deploy
+	pnpm --filter @flowmesh/auth prisma:generate
+
+auth-generate:
+	pnpm --filter @flowmesh/auth prisma:generate
+
 # ─── Testing ─────────────────────────────────────────────────────────────────
 
 test:
@@ -123,4 +139,5 @@ env-setup:
         ingestion-dev ingestion-migrate-create ingestion-migrate ingestion-generate \
         pipeline-dev pipeline-migrate-create pipeline-migrate pipeline-generate \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
+        auth-dev auth-migrate-create auth-migrate auth-generate \
         test test-integration test-coverage test-watch install gen-jwt-secret env-setup

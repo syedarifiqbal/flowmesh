@@ -214,9 +214,12 @@ services:
     env_file: ../.env
     environment:
       PORT: 3004
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=auth
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
       JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
     depends_on:
       pgbouncer:
         condition: service_started
