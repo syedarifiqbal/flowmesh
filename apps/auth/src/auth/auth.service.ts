@@ -103,15 +103,16 @@ export class AuthService {
       throw new UnauthorizedException('refresh token not found or revoked')
     }
 
-    // Rotate — revoke old token immediately
+    // Rotate — revoke DB row first, then blacklist in Redis.
+    // DB-first ensures no duplicate issuance even if the Redis write fails.
     const ttl = Math.floor((stored.expiresAt.getTime() - Date.now()) / 1000)
-    if (ttl > 0) {
-      await this.redis.blacklistToken(payload.jti, ttl)
-    }
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
       data: { revokedAt: new Date() },
     })
+    if (ttl > 0) {
+      await this.redis.blacklistToken(payload.jti, ttl)
+    }
 
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: payload.sub } })
     return this.issueTokenPair(user.id, user.workspaceId)
@@ -153,17 +154,18 @@ export class AuthService {
   }
 
   verifyAccessToken(token: string): AccessTokenPayload {
+    let payload: AccessTokenPayload
     try {
-      const payload = this.jwt.verify<AccessTokenPayload>(token, {
+      payload = this.jwt.verify<AccessTokenPayload>(token, {
         secret: this.config.get<string>('JWT_SECRET'),
       })
-      if (payload.type !== 'access') {
-        throw new UnauthorizedException('invalid token type')
-      }
-      return payload
     } catch {
       throw new UnauthorizedException('invalid access token')
     }
+    if (payload.type !== 'access') {
+      throw new UnauthorizedException('invalid token type')
+    }
+    return payload
   }
 
   private async issueTokenPair(userId: string, workspaceId: string): Promise<TokenPair> {

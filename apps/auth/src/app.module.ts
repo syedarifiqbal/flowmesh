@@ -1,5 +1,4 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
 import { LoggerModule } from 'nestjs-pino'
 import { AppConfigModule } from './config/config.module'
 import { PrismaModule } from './prisma/prisma.module'
