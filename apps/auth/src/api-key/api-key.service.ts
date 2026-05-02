@@ -68,8 +68,10 @@ export class ApiKeyService {
   }
 
   async validateApiKey(rawKey: string): Promise<{ workspaceId: string } | null> {
-    const keyHash = this.hashKey(rawKey)
+    return this.validateByHash(this.hashKey(rawKey))
+  }
 
+  async validateByHash(keyHash: string): Promise<{ workspaceId: string } | null> {
     const blacklisted = await this.redis.isApiKeyBlacklisted(keyHash)
     if (blacklisted) return null
 
