@@ -95,6 +95,11 @@ auth-migrate:
 auth-generate:
 	pnpm --filter @flowmesh/auth prisma:generate
 
+# ─── API Gateway service ─────────────────────────────────────────────────────
+
+gateway-dev:
+	pnpm --filter @flowmesh/api-gateway dev
+
 # ─── Testing ─────────────────────────────────────────────────────────────────
 
 test:
@@ -140,4 +145,5 @@ env-setup:
         pipeline-dev pipeline-migrate-create pipeline-migrate pipeline-generate \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         auth-dev auth-migrate-create auth-migrate auth-generate \
+        gateway-dev \
         test test-integration test-coverage test-watch install gen-jwt-secret env-setup
