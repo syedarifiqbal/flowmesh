@@ -32,7 +32,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build shared packages
-        run: pnpm --filter @flowmesh/nestjs-common build
+        run: |
+          pnpm --filter @flowmesh/shared-types build
+          pnpm --filter @flowmesh/nestjs-common build
 
       - name: Generate Prisma clients
         run: |
@@ -61,7 +63,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build shared packages
-        run: pnpm --filter @flowmesh/nestjs-common build
+        run: |
+          pnpm --filter @flowmesh/shared-types build
+          pnpm --filter @flowmesh/nestjs-common build
 
       - name: Generate Prisma clients
         run: |
@@ -90,7 +94,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build shared packages
-        run: pnpm --filter @flowmesh/nestjs-common build
+        run: |
+          pnpm --filter @flowmesh/shared-types build
+          pnpm --filter @flowmesh/nestjs-common build
 
       - name: Generate Prisma clients
         run: |
@@ -183,7 +189,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build shared packages
-        run: pnpm --filter @flowmesh/nestjs-common build
+        run: |
+          pnpm --filter @flowmesh/shared-types build
+          pnpm --filter @flowmesh/nestjs-common build
 
       - name: Generate Prisma clients
         run: |
@@ -235,7 +243,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build shared packages
-        run: pnpm --filter @flowmesh/nestjs-common build
+        run: |
+          pnpm --filter @flowmesh/shared-types build
+          pnpm --filter @flowmesh/nestjs-common build
 
       - name: Generate Prisma clients
         run: |
