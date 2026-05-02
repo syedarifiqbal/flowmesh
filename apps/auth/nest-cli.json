@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "assets": [
+      { "include": "generated/**/*", "watchAssets": true }
+    ]
+  }
+}
