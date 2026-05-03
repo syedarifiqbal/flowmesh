@@ -60,6 +60,17 @@ pipeline-migrate:
 pipeline-generate:
 	pnpm --filter @flowmesh/pipeline prisma:generate
 
+# ─── Delivery service (Go) ───────────────────────────────────────────────────
+
+delivery-dev:
+	cd apps/delivery && go run .
+
+delivery-build:
+	cd apps/delivery && go build -o dist/delivery .
+
+delivery-test:
+	cd apps/delivery && go test ./...
+
 # ─── Config service ──────────────────────────────────────────────────────────
 
 config-dev:
@@ -148,6 +159,7 @@ env-setup:
 .PHONY: infra-up infra-down infra-logs infra-psql up down down-v logs \
         ingestion-dev ingestion-migrate-create ingestion-migrate ingestion-generate \
         pipeline-dev pipeline-migrate-create pipeline-migrate pipeline-generate \
+        delivery-dev delivery-build delivery-test \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         auth-dev auth-migrate-create auth-migrate auth-generate \
         gateway-dev dashboard-dev \

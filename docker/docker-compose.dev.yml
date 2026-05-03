@@ -40,7 +40,7 @@ services:
       target: development
     volumes:
       - ../apps/delivery:/app
-    command: go run ./cmd/server
+    command: go run .
     environment:
       GO_ENV: development
 

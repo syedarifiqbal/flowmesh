@@ -20,6 +20,7 @@ export interface FanoutMessage {
     messageId: string
     executionId: string
     destinationId: string
+    workspaceId: string
   }
   event: FlowMeshEvent
 }
@@ -48,12 +49,13 @@ export class FanoutService implements OnModuleInit, OnModuleDestroy {
   async publishToDestination(
     executionId: string,
     destinationId: string,
+    workspaceId: string,
     event: FlowMeshEvent,
   ): Promise<void> {
     const messageId = uuidv5(`${executionId}:${destinationId}`, FANOUT_NAMESPACE)
 
     const message: FanoutMessage = {
-      meta: { messageId, executionId, destinationId },
+      meta: { messageId, executionId, destinationId, workspaceId },
       event,
     }
 
