@@ -196,12 +196,12 @@ services:
     env_file: ../.env
     environment:
       PORT: 3003
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
       RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+      CONFIG_SERVICE_URL: http://config-service:3005
     depends_on:
       rabbitmq:
         condition: service_healthy
-      pgbouncer:
+      config-service:
         condition: service_started
     networks:
       - flowmesh

@@ -183,7 +183,7 @@ describe('ConsumerService', () => {
     expect(prisma.pipelineExecution.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: 'running', pipelineId: 'pipe-1' }),
     }))
-    expect(fanout.publishToDestination).toHaveBeenCalledWith('exec-1', 'dest-1', expect.objectContaining({ eventId: EVENT_ID }))
+    expect(fanout.publishToDestination).toHaveBeenCalledWith('exec-1', 'dest-1', WORKSPACE_ID, expect.objectContaining({ eventId: EVENT_ID }))
     expect(prisma.pipelineExecution.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: 'completed' }),
     }))
@@ -264,7 +264,7 @@ describe('ConsumerService', () => {
     await handler(makeAmqpMessage(makeQueueMessage()))
 
     expect(fanout.publishToDestination).toHaveBeenCalledTimes(2)
-    expect(fanout.publishToDestination).toHaveBeenCalledWith('exec-1', 'dest-slack', expect.anything())
-    expect(fanout.publishToDestination).toHaveBeenCalledWith('exec-1', 'dest-s3', expect.anything())
+    expect(fanout.publishToDestination).toHaveBeenCalledWith('exec-1', 'dest-slack', WORKSPACE_ID, expect.anything())
+    expect(fanout.publishToDestination).toHaveBeenCalledWith('exec-1', 'dest-s3', WORKSPACE_ID, expect.anything())
   })
 })
