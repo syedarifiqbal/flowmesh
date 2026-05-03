@@ -103,7 +103,7 @@ func (c *Consumer) setupChannel() (*amqp.Channel, error) {
 		return nil, fmt.Errorf("declare delivery exchange: %w", err)
 	}
 
-	if err := ch.ExchangeDeclare(dlqExchange, "direct", true, false, false, false, nil); err != nil {
+	if err := ch.ExchangeDeclare(dlqExchange, "topic", true, false, false, false, nil); err != nil {
 		return nil, fmt.Errorf("declare dlq exchange: %w", err)
 	}
 
