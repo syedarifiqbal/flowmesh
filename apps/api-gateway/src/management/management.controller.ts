@@ -32,6 +32,8 @@ export class ManagementController {
   @All('api-keys*')
   async apiKeys(@Req() req: Request, @Res() res: Response): Promise<void> {
     const base = this.config.get<string>('AUTH_SERVICE_URL')!
-    await this.proxy.forward(req, res, `${base}${req.path}`)
+    // Auth service mounts api-keys under /auth/api-keys internally
+    const upstreamPath = req.path.replace(/^\/api-keys/, '/auth/api-keys')
+    await this.proxy.forward(req, res, `${base}${upstreamPath}`)
   }
 }

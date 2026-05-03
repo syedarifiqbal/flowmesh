@@ -75,6 +75,10 @@ export class ProxyService {
     if (request.auth?.workspaceId) headers['x-workspace-id'] = request.auth.workspaceId
     if (request.auth?.userId) headers['x-user-id'] = request.auth.userId
 
+    // Forward Authorization header for public auth routes (e.g. GET /auth/me)
+    const authorization = request.headers['authorization'] as string | undefined
+    if (authorization) headers['authorization'] = authorization
+
     return headers
   }
 }
