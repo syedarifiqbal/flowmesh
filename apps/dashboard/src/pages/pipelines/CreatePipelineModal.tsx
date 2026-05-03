@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useFormik } from 'formik'
 import { toFormikValidationSchema } from 'zod-formik-adapter'
 import { z } from 'zod'
+import { Link } from 'react-router-dom'
 import { X } from 'lucide-react'
 import api from '../../lib/api'
 import { useToastContext } from '../../components/ui/ToastProvider'
@@ -13,6 +14,12 @@ const schema = z.object({
 })
 
 type FormValues = z.infer<typeof schema>
+
+interface Destination {
+  id: string
+  name: string
+  type: string
+}
 
 interface Props {
   open: boolean
@@ -26,6 +33,13 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
   const [events, setEvents] = useState<string[]>([])
   const [eventInput, setEventInput] = useState('')
   const [eventError, setEventError] = useState('')
+  const [selectedDestinations, setSelectedDestinations] = useState<string[]>([])
+
+  const { data: destinations } = useQuery<Destination[]>({
+    queryKey: ['destinations'],
+    queryFn: () => api.get('/config/destinations').then((r) => r.data),
+    enabled: open,
+  })
 
   useEffect(() => {
     if (!open) return
@@ -41,6 +55,7 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
     setEvents([])
     setEventInput('')
     setEventError('')
+    setSelectedDestinations([])
     formik.resetForm()
     onClose()
   }
@@ -68,14 +83,21 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
     }
   }
 
+  function toggleDestination(id: string) {
+    setSelectedDestinations((prev) =>
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id],
+    )
+  }
+
   const mutation = useMutation({
     mutationFn: (payload: {
       name: string
       description: string
       trigger: { type: 'event'; events: string[] }
       steps: never[]
+      destinations: string[]
       enabled: boolean
-    }) => api.post('/pipelines', payload).then((r) => r.data),
+    }) => api.post('/config/pipelines', payload).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipelines'] })
       toast({ title: 'Pipeline created', variant: 'success' })
@@ -100,6 +122,7 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
           description: values.description ?? '',
           trigger: { type: 'event', events },
           steps: [],
+          destinations: selectedDestinations,
           enabled: true,
         })
       } catch {
@@ -114,7 +137,7 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose}>
       <div className="absolute inset-0 bg-black/40" />
       <div
-        className="relative bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6"
+        className="relative bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -199,9 +222,47 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
             )}
           </div>
 
-          <p className="text-xs text-gray-400">
-            Steps can be added after creation from the pipeline detail view.
-          </p>
+          <div>
+            <p className="block text-sm font-medium text-gray-700 mb-2">
+              Destinations <span className="text-gray-400 font-normal">(optional)</span>
+            </p>
+
+            {destinations && destinations.length === 0 && (
+              <p className="text-xs text-gray-500">
+                No destinations yet.{' '}
+                <Link
+                  to="/destinations"
+                  onClick={handleClose}
+                  className="text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  Create one first
+                </Link>{' '}
+                then come back.
+              </p>
+            )}
+
+            {destinations && destinations.length > 0 && (
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {destinations.map((dest) => (
+                  <label
+                    key={dest.id}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedDestinations.includes(dest.id)}
+                      onChange={() => toggleDestination(dest.id)}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-800">{dest.name}</span>
+                    <span className="ml-auto text-xs px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">
+                      {dest.type}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <button
