@@ -69,7 +69,10 @@ delivery-build:
 	cd apps/delivery && go build -o dist/delivery .
 
 delivery-test:
-	cd apps/delivery && go test ./...
+	cd apps/delivery && go test ./... -cover
+
+delivery-test-race:
+	cd apps/delivery && go test ./... -race -timeout 60s
 
 # ─── Config service ──────────────────────────────────────────────────────────
 
@@ -159,7 +162,7 @@ env-setup:
 .PHONY: infra-up infra-down infra-logs infra-psql up down down-v logs \
         ingestion-dev ingestion-migrate-create ingestion-migrate ingestion-generate \
         pipeline-dev pipeline-migrate-create pipeline-migrate pipeline-generate \
-        delivery-dev delivery-build delivery-test \
+        delivery-dev delivery-build delivery-test delivery-test-race \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         auth-dev auth-migrate-create auth-migrate auth-generate \
         gateway-dev dashboard-dev \

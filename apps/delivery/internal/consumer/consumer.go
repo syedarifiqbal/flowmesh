@@ -39,6 +39,13 @@ type fanoutMessage struct {
 	Event map[string]any `json:"event"`
 }
 
+// acker abstracts amqp.Delivery's Ack/Nack so the core logic is testable
+// without a real broker connection.
+type acker interface {
+	Ack(multiple bool) error
+	Nack(multiple, requeue bool) error
+}
+
 type Consumer struct {
 	conn         *amqp.Connection
 	configClient *configclient.Client
@@ -85,12 +92,70 @@ func (c *Consumer) Start(ctx context.Context) error {
 					ch, msgs = c.reconnect(ctx)
 					continue
 				}
-				c.handleMessage(ctx, ch, msg)
+				c.processDelivery(ctx, &msg)
 			}
 		}
 	}()
 
 	return nil
+}
+
+// processDelivery wraps an amqp.Delivery and calls the testable core logic.
+func (c *Consumer) processDelivery(ctx context.Context, msg *amqp.Delivery) {
+	c.handleMessageInternal(ctx, msg, msg.Body)
+}
+
+// handleMessageInternal contains all message-handling logic. It accepts an
+// acker interface so it can be unit-tested without a real AMQP broker.
+func (c *Consumer) handleMessageInternal(ctx context.Context, a acker, body []byte) {
+	var fm fanoutMessage
+	if err := json.Unmarshal(body, &fm); err != nil {
+		c.logger.Error("unparseable delivery message — sending to DLQ", "err", err)
+		a.Nack(false, false) //nolint:errcheck
+		return
+	}
+
+	log := c.logger.With(
+		"messageId", fm.Meta.MessageID,
+		"destinationId", fm.Meta.DestinationID,
+		"workspaceId", fm.Meta.WorkspaceID,
+	)
+
+	dest, err := c.configClient.GetDestination(ctx, fm.Meta.WorkspaceID, fm.Meta.DestinationID)
+	if err != nil {
+		log.Error("failed to fetch destination config", "err", err)
+		a.Nack(false, false) //nolint:errcheck
+		return
+	}
+
+	cb := c.breakerFor(fm.Meta.DestinationID, dest.Type)
+
+	var deliverErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		_, deliverErr = cb.Execute(func() (any, error) {
+			return nil, destination.Dispatch(ctx, dest.Type, dest.Config, fm.Event)
+		})
+
+		if deliverErr == nil {
+			log.Info("event delivered", "type", dest.Type, "attempt", attempt)
+			a.Ack(false) //nolint:errcheck
+			return
+		}
+
+		if attempt < maxRetries {
+			delay := time.Duration(math.Min(float64(baseDelayMs)*math.Pow(2, float64(attempt-1)), float64(maxDelayMs))) * time.Millisecond
+			log.Warn("delivery attempt failed — retrying", "attempt", attempt, "err", deliverErr, "backoff_ms", delay.Milliseconds())
+			select {
+			case <-ctx.Done():
+				a.Nack(false, true) //nolint:errcheck
+				return
+			case <-time.After(delay):
+			}
+		}
+	}
+
+	log.Error("max retries exceeded — routing to DLQ", "err", deliverErr, "type", dest.Type)
+	a.Nack(false, false) //nolint:errcheck
 }
 
 func (c *Consumer) setupChannel() (*amqp.Channel, error) {
@@ -153,57 +218,6 @@ func (c *Consumer) reconnect(ctx context.Context) (*amqp.Channel, <-chan amqp.De
 		c.logger.Info("delivery channel reconnected")
 		return ch, msgs
 	}
-}
-
-func (c *Consumer) handleMessage(ctx context.Context, ch *amqp.Channel, msg amqp.Delivery) {
-	var fm fanoutMessage
-	if err := json.Unmarshal(msg.Body, &fm); err != nil {
-		c.logger.Error("unparseable delivery message — sending to DLQ", "err", err)
-		msg.Nack(false, false)
-		return
-	}
-
-	log := c.logger.With(
-		"messageId", fm.Meta.MessageID,
-		"destinationId", fm.Meta.DestinationID,
-		"workspaceId", fm.Meta.WorkspaceID,
-	)
-
-	dest, err := c.configClient.GetDestination(ctx, fm.Meta.WorkspaceID, fm.Meta.DestinationID)
-	if err != nil {
-		log.Error("failed to fetch destination config", "err", err)
-		msg.Nack(false, false)
-		return
-	}
-
-	cb := c.breakerFor(fm.Meta.DestinationID, dest.Type)
-
-	var deliverErr error
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		_, deliverErr = cb.Execute(func() (any, error) {
-			return nil, destination.Dispatch(ctx, dest.Type, dest.Config, fm.Event)
-		})
-
-		if deliverErr == nil {
-			log.Info("event delivered", "type", dest.Type, "attempt", attempt)
-			msg.Ack(false)
-			return
-		}
-
-		if attempt < maxRetries {
-			delay := time.Duration(math.Min(float64(baseDelayMs)*math.Pow(2, float64(attempt-1)), float64(maxDelayMs))) * time.Millisecond
-			log.Warn("delivery attempt failed — retrying", "attempt", attempt, "err", deliverErr, "backoff_ms", delay.Milliseconds())
-			select {
-			case <-ctx.Done():
-				msg.Nack(false, true)
-				return
-			case <-time.After(delay):
-			}
-		}
-	}
-
-	log.Error("max retries exceeded — routing to DLQ", "err", deliverErr, "type", dest.Type)
-	msg.Nack(false, false)
 }
 
 func (c *Consumer) breakerFor(destinationID, destType string) *gobreaker.CircuitBreaker {
