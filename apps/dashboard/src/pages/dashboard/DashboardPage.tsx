@@ -89,7 +89,7 @@ export default function DashboardPage() {
       },
       {
         queryKey: ['destinations'],
-        queryFn: () => api.get<Destination[]>('/config/destinations').then((r) => r.data),
+        queryFn: () => api.get<Destination[]>('/destinations').then((r) => r.data),
       },
     ],
   })

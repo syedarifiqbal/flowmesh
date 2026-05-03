@@ -32,19 +32,19 @@ export default function PipelineDetailPage() {
 
   const { data: pipeline, isLoading, error } = useQuery<Pipeline>({
     queryKey: ['pipeline', id],
-    queryFn: () => api.get(`/config/pipelines/${id}`).then((r) => r.data),
+    queryFn: () => api.get(`/pipelines/${id}`).then((r) => r.data),
     enabled: !!id,
   })
 
   const { data: allDestinations } = useQuery<Destination[]>({
     queryKey: ['destinations'],
-    queryFn: () => api.get('/config/destinations').then((r) => r.data),
+    queryFn: () => api.get('/destinations').then((r) => r.data),
   })
 
   const removeDestMutation = useMutation({
     mutationFn: (destId: string) =>
       api
-        .put(`/config/pipelines/${id}`, {
+        .put(`/pipelines/${id}`, {
           destinations: (pipeline?.destinations ?? []).filter((d) => d !== destId),
         })
         .then((r) => r.data),

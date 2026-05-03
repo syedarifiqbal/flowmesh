@@ -22,11 +22,11 @@ export default function DestinationsPage() {
 
   const { data, isLoading, error } = useQuery<Destination[]>({
     queryKey: ['destinations'],
-    queryFn: () => api.get('/config/destinations').then((r) => r.data),
+    queryFn: () => api.get('/destinations').then((r) => r.data),
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/config/destinations/${id}`),
+    mutationFn: (id: string) => api.delete(`/destinations/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['destinations'] })
       toast({ title: 'Destination deleted', variant: 'success' })

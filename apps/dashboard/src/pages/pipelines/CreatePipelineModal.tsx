@@ -37,7 +37,7 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
 
   const { data: destinations } = useQuery<Destination[]>({
     queryKey: ['destinations'],
-    queryFn: () => api.get('/config/destinations').then((r) => r.data),
+    queryFn: () => api.get('/destinations').then((r) => r.data),
     enabled: open,
   })
 
@@ -97,7 +97,7 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
       steps: never[]
       destinations: string[]
       enabled: boolean
-    }) => api.post('/config/pipelines', payload).then((r) => r.data),
+    }) => api.post('/pipelines', payload).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipelines'] })
       toast({ title: 'Pipeline created', variant: 'success' })

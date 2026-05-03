@@ -46,7 +46,7 @@ export default function CreateDestinationModal({ open, onClose }: Props) {
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
       api
-        .post('/config/destinations', {
+        .post('/destinations', {
           name: values.name,
           type: values.type,
           config: {

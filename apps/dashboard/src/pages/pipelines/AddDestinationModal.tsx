@@ -36,14 +36,14 @@ export default function AddDestinationModal({ open, pipelineId, attachedIds, onC
 
   const { data: allDestinations, isLoading } = useQuery<Destination[]>({
     queryKey: ['destinations'],
-    queryFn: () => api.get('/config/destinations').then((r) => r.data),
+    queryFn: () => api.get('/destinations').then((r) => r.data),
     enabled: open,
   })
 
   const addMutation = useMutation({
     mutationFn: (destId: string) =>
       api
-        .put(`/config/pipelines/${pipelineId}`, {
+        .put(`/pipelines/${pipelineId}`, {
           destinations: [...attachedIds, destId],
         })
         .then((r) => r.data),
