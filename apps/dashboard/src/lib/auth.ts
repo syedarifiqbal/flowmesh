@@ -2,6 +2,10 @@ export function getToken(): string | null {
   return localStorage.getItem('access_token')
 }
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem('refresh_token')
+}
+
 export function setTokens(access: string, refresh: string): void {
   localStorage.setItem('access_token', access)
   localStorage.setItem('refresh_token', refresh)
