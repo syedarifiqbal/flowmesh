@@ -7,6 +7,6 @@ import { AuthGuard } from './auth.guard'
 @Module({
   imports: [JwtModule.register({}), RedisModule, ProxyModule],
   providers: [AuthGuard],
-  exports: [AuthGuard],
+  exports: [AuthGuard, JwtModule, RedisModule],
 })
 export class AuthModule {}
