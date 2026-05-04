@@ -15,7 +15,7 @@ interface Destination {
 interface Props {
   open: boolean
   pipelineId: string
-  attachedIds: string[]
+  attachedIds: string[] | undefined
   onClose: () => void
 }
 
@@ -44,7 +44,7 @@ export default function AddDestinationModal({ open, pipelineId, attachedIds, onC
     mutationFn: (destId: string) =>
       api
         .put(`/pipelines/${pipelineId}`, {
-          destinations: [...attachedIds, destId],
+          destinations: [...(attachedIds ?? []), destId],
         })
         .then((r) => r.data),
     onSuccess: () => {
@@ -59,7 +59,7 @@ export default function AddDestinationModal({ open, pipelineId, attachedIds, onC
 
   if (!open) return null
 
-  const available = (allDestinations ?? []).filter((d) => !attachedIds.includes(d.id))
+  const available = (allDestinations ?? []).filter((d) => !(attachedIds ?? []).includes(d.id))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
@@ -109,11 +109,11 @@ export default function AddDestinationModal({ open, pipelineId, attachedIds, onC
                 <Share2 className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900">{dest.name}</p>
-                  {dest.config.url && (
+                  {dest.config?.url && (
                     <div className="flex items-center gap-1 mt-0.5">
                       <ExternalLink className="w-3 h-3 text-gray-400 shrink-0" />
                       <span className="text-xs text-gray-500 truncate font-mono">
-                        {dest.config.url}
+                        {dest.config?.url}
                       </span>
                     </div>
                   )}

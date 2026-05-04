@@ -99,7 +99,7 @@ export default function DestinationsPage() {
                   </button>
                 </div>
 
-                {dest.config.url && (
+                {dest.config?.url && (
                   <div className="flex items-center gap-1.5 min-w-0">
                     <ExternalLink className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                     <span className="text-xs text-gray-500 truncate font-mono">

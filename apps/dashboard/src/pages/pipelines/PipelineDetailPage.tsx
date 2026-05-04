@@ -82,7 +82,7 @@ export default function PipelineDetailPage() {
   }
 
   const attachedDestinations = (allDestinations ?? []).filter((d) =>
-    pipeline.destinations.includes(d.id),
+    (pipeline.destinations ?? []).includes(d.id),
   )
 
   return (
@@ -170,8 +170,8 @@ export default function PipelineDetailPage() {
                   <Share2 className="w-4 h-4 text-indigo-400 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">{dest.name}</p>
-                    {dest.config.url && (
-                      <p className="text-xs text-gray-500 font-mono truncate">{dest.config.url}</p>
+                    {dest.config?.url && (
+                      <p className="text-xs text-gray-500 font-mono truncate">{dest.config?.url}</p>
                     )}
                   </div>
                   <span className="shrink-0 px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full border border-indigo-200">

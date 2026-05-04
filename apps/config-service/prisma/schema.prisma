@@ -13,9 +13,10 @@ model Pipeline {
   workspaceId String   @map("workspace_id")
   name        String
   description String?
-  trigger     Json
-  steps       Json
-  enabled     Boolean  @default(true)
+  trigger      Json
+  steps        Json
+  destinations Json     @default("[]")
+  enabled      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
