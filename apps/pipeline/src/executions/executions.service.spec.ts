@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { randomUUID } from 'crypto'
+import { NotFoundException } from '@nestjs/common'
 import { ExecutionsService } from './executions.service'
 import { PrismaService } from '../prisma/prisma.service'
 
@@ -21,13 +22,20 @@ const makeExecution = (overrides = {}) => ({
 
 describe('ExecutionsService', () => {
   let service: ExecutionsService
-  let prisma: { pipelineExecution: { findMany: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn> } }
+  let prisma: {
+    pipelineExecution: {
+      findMany: ReturnType<typeof vi.fn>
+      count: ReturnType<typeof vi.fn>
+      findFirst: ReturnType<typeof vi.fn>
+    }
+  }
 
   beforeEach(() => {
     prisma = {
       pipelineExecution: {
         findMany: vi.fn(),
         count: vi.fn(),
+        findFirst: vi.fn(),
       },
     }
     service = new ExecutionsService(prisma as unknown as PrismaService)
@@ -83,6 +91,26 @@ describe('ExecutionsService', () => {
       expect(prisma.pipelineExecution.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 10, skip: 20 }),
       )
+    })
+  })
+
+  describe('findOne', () => {
+    it('returns the execution when found', async () => {
+      const execution = makeExecution()
+      prisma.pipelineExecution.findFirst.mockResolvedValue(execution)
+
+      const result = await service.findOne(WORKSPACE_ID, execution.id)
+
+      expect(result).toBe(execution)
+      expect(prisma.pipelineExecution.findFirst).toHaveBeenCalledWith({
+        where: { id: execution.id, workspaceId: WORKSPACE_ID },
+      })
+    })
+
+    it('throws NotFoundException when execution does not exist', async () => {
+      prisma.pipelineExecution.findFirst.mockResolvedValue(null)
+
+      await expect(service.findOne(WORKSPACE_ID, randomUUID())).rejects.toThrow(NotFoundException)
     })
   })
 })

@@ -307,7 +307,11 @@ export default function PipelineDetailPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {executions.map((exec) => (
-                    <tr key={exec.id} className="hover:bg-gray-50">
+                    <tr
+                      key={exec.id}
+                      onClick={() => navigate(`/executions/${exec.id}`)}
+                      className="hover:bg-gray-50 cursor-pointer"
+                    >
                       <td className="px-6 py-3">
                         <StatusBadge status={exec.status} />
                       </td>

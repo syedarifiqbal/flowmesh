@@ -7,6 +7,7 @@ import DashboardPage from './pages/dashboard/DashboardPage'
 import EventsPage from './pages/events/EventsPage'
 import PipelinesPage from './pages/pipelines/PipelinesPage'
 import PipelineDetailPage from './pages/pipelines/PipelineDetailPage'
+import ExecutionDetailPage from './pages/executions/ExecutionDetailPage'
 import DestinationsPage from './pages/destinations/DestinationsPage'
 import ApiKeysPage from './pages/api-keys/ApiKeysPage'
 import SettingsPage from './pages/settings/SettingsPage'
@@ -36,6 +37,7 @@ export default function AppRouter() {
         <Route path="/events" element={<EventsPage />} />
         <Route path="/pipelines" element={<PipelinesPage />} />
         <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
+        <Route path="/executions/:id" element={<ExecutionDetailPage />} />
         <Route path="/destinations" element={<DestinationsPage />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
         <Route path="/settings" element={<SettingsPage />} />

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 
 export interface ExecutionsQuery {
@@ -31,5 +31,13 @@ export class ExecutionsService {
     ])
 
     return { executions, total, limit, offset }
+  }
+
+  async findOne(workspaceId: string, id: string) {
+    const execution = await this.prisma.pipelineExecution.findFirst({
+      where: { id, workspaceId },
+    })
+    if (!execution) throw new NotFoundException(`Execution ${id} not found`)
+    return execution
   }
 }

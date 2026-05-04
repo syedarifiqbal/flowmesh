@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common'
+import { Controller, Get, Param, Query } from '@nestjs/common'
 import { WorkspaceId } from '@flowmesh/nestjs-common'
 import { ExecutionsService } from './executions.service'
 import { QueryExecutionsDto } from './dto/query-executions.dto'
@@ -13,5 +13,13 @@ export class ExecutionsController {
     @Query() query: QueryExecutionsDto,
   ) {
     return this.service.findAll(workspaceId, query)
+  }
+
+  @Get(':id')
+  findOne(
+    @WorkspaceId() workspaceId: string,
+    @Param('id') id: string,
+  ) {
+    return this.service.findOne(workspaceId, id)
   }
 }
