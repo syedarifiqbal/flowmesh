@@ -26,19 +26,19 @@ services:
       - flowmesh
 
   pgbouncer:
-    image: bitnami/pgbouncer:latest
+    image: edoburu/pgbouncer:latest
     container_name: flowmesh-pgbouncer
     restart: unless-stopped
     environment:
-      POSTGRESQL_HOST: postgres
-      POSTGRESQL_PORT: 5432
-      POSTGRESQL_DATABASE: flowmesh
-      POSTGRESQL_USERNAME: flowmesh
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
-      PGBOUNCER_DATABASE: flowmesh
-      PGBOUNCER_POOL_MODE: transaction
-      PGBOUNCER_MAX_CLIENT_CONN: 200
-      PGBOUNCER_DEFAULT_POOL_SIZE: 20
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: flowmesh
+      DB_USER: flowmesh
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      DEFAULT_POOL_SIZE: 20
+      AUTH_TYPE: trust
     ports:
       - "5432:5432"
     depends_on:
@@ -125,9 +125,12 @@ services:
       INGESTION_SERVICE_URL: http://ingestion:3001
       CONFIG_SERVICE_URL: http://config-service:3005
       AUTH_SERVICE_URL: http://auth:3004
+      PIPELINE_SERVICE_URL: http://pipeline:3002
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
       JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3000:3000"
     depends_on:
       redis-ephemeral:
         condition: service_healthy
