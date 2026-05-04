@@ -9,6 +9,7 @@ import { ProxyService } from '../proxy/proxy.service'
 // /pipelines/* and /destinations/* → config-service
 // /api-keys/* → auth service
 // /events* (GET reads) → ingestion service
+// /executions* → pipeline service
 @Controller()
 @UseGuards(AuthGuard, RateLimitGuard)
 @RateLimit('mgmt')
@@ -41,6 +42,12 @@ export class ManagementController {
   @All('events*')
   async events(@Req() req: Request, @Res() res: Response): Promise<void> {
     const base = this.config.get<string>('INGESTION_SERVICE_URL')!
+    await this.proxy.forward(req, res, `${base}${req.path}`)
+  }
+
+  @All('executions*')
+  async executions(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const base = this.config.get<string>('PIPELINE_SERVICE_URL')!
     await this.proxy.forward(req, res, `${base}${req.path}`)
   }
 }
