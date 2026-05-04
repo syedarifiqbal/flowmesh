@@ -1,0 +1,69 @@
+# Promtail config — discovers FlowMesh containers via Docker socket and ships
+# their logs to Loki with structured labels.
+#
+# How it works:
+#   1. docker_sd_configs polls the Docker API every 5s for running containers
+#   2. relabel_configs map Docker metadata onto Loki stream labels
+#   3. pipeline_stages parse each JSON log line produced by pino/Go services
+#   4. Labels extracted from JSON (service, level) are promoted to Loki labels
+#   5. The enriched stream is pushed to Loki's push API
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  # Tracks the last byte position read per log file so Promtail resumes
+  # after restart without re-shipping already-sent lines.
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: flowmesh-docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+
+    relabel_configs:
+      # Use the Docker Compose service name (e.g. "pipeline", "ingestion") as a label.
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: compose_service
+      # Strip the leading slash from the container name (/flowmesh-pipeline → flowmesh-pipeline).
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: container
+      # Only scrape containers on the flowmesh Docker network.
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        regex: flowmesh
+        action: keep
+
+    pipeline_stages:
+      # Parse the raw log line as JSON (pino and the Go service both output JSON in production).
+      - json:
+          expressions:
+            level: level       # pino numeric level: 10/20/30/40/50/60
+            service: service   # set via customProps in each service's LoggerModule config
+            msg: msg
+
+      # Map pino numeric levels to readable strings so Grafana log level colouring works.
+      # pino: 10=trace 20=debug 30=info 40=warn 50=error 60=fatal
+      - template:
+          source: level
+          template: >-
+            {{ if eq .Value "10" }}trace
+            {{ else if eq .Value "20" }}debug
+            {{ else if eq .Value "30" }}info
+            {{ else if eq .Value "40" }}warn
+            {{ else if eq .Value "50" }}error
+            {{ else if eq .Value "60" }}fatal
+            {{ else }}{{ .Value }}
+            {{ end }}
+
+      # Promote the extracted fields to Loki stream labels.
+      # Labels are indexed — keep this list small (high-cardinality fields like
+      # correlationId must NOT be labels; search them with |= "correlationId=xyz" instead).
+      - labels:
+          level:
+          service:

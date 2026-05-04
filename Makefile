@@ -4,7 +4,7 @@ COMPOSE     := docker-compose -f $(DOCKER_DIR)/docker-compose.yml
 # ─── Infrastructure ──────────────────────────────────────────────────────────
 
 infra-up:
-	$(COMPOSE) up postgres redis-ephemeral redis-persistent rabbitmq -d
+	$(COMPOSE) up postgres redis-ephemeral redis-persistent rabbitmq loki promtail grafana -d
 
 infra-down:
 	$(COMPOSE) down
@@ -14,6 +14,20 @@ infra-logs:
 
 infra-psql:
 	docker exec -it flowmesh-postgres psql -U flowmesh -d flowmesh
+
+# ─── Observability ───────────────────────────────────────────────────────────
+
+obs-up:
+	$(COMPOSE) up loki promtail grafana -d
+
+obs-down:
+	$(COMPOSE) stop loki promtail grafana
+
+obs-logs:
+	$(COMPOSE) logs -f loki promtail grafana
+
+grafana-open:
+	open http://localhost:3200
 
 # ─── Full stack ───────────────────────────────────────────────────────────────
 
@@ -159,7 +173,7 @@ env-setup:
 		echo "skipped .env (already exists)"; \
 	fi
 
-.PHONY: infra-up infra-down infra-logs infra-psql up down down-v logs \
+.PHONY: infra-up infra-down infra-logs infra-psql obs-up obs-down obs-logs grafana-open up down down-v logs \
         ingestion-dev ingestion-migrate-create ingestion-migrate ingestion-generate \
         pipeline-dev pipeline-migrate-create pipeline-migrate pipeline-generate \
         delivery-dev delivery-build delivery-test delivery-test-race \
