@@ -115,8 +115,11 @@ services:
 
   api-gateway:
     build:
-      context: ../apps/api-gateway
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: api-gateway
+        SERVICE_PORT: 3000
     container_name: flowmesh-api-gateway
     restart: unless-stopped
     env_file: ../.env
@@ -141,8 +144,11 @@ services:
 
   ingestion:
     build:
-      context: ../apps/ingestion
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: ingestion
+        SERVICE_PORT: 3001
     container_name: flowmesh-ingestion
     restart: unless-stopped
     env_file: ../.env
@@ -164,8 +170,11 @@ services:
 
   pipeline:
     build:
-      context: ../apps/pipeline
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: pipeline
+        SERVICE_PORT: 3002
     container_name: flowmesh-pipeline
     restart: unless-stopped
     env_file: ../.env
@@ -211,8 +220,11 @@ services:
 
   auth:
     build:
-      context: ../apps/auth
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: auth
+        SERVICE_PORT: 3004
     container_name: flowmesh-auth
     restart: unless-stopped
     env_file: ../.env
@@ -234,8 +246,11 @@ services:
 
   config-service:
     build:
-      context: ../apps/config-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: config-service
+        SERVICE_PORT: 3005
     container_name: flowmesh-config
     restart: unless-stopped
     env_file: ../.env
