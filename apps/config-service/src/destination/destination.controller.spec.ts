@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { randomUUID } from 'crypto'
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { NotFoundException } from '@nestjs/common'
 import { DestinationController } from './destination.controller'
 import { DestinationService } from './destination.service'
 import { CreateDestinationDto } from './dto/create-destination.dto'
@@ -45,7 +45,7 @@ describe('DestinationController', () => {
   })
 
   describe('create', () => {
-    it('delegates to service with workspace id from header', async () => {
+    it('delegates to service with workspace id', async () => {
       const dest = makeDestination()
       service.create.mockResolvedValue(dest)
 
@@ -53,10 +53,6 @@ describe('DestinationController', () => {
 
       expect(service.create).toHaveBeenCalledWith(WORKSPACE_ID, makeDto())
       expect(result).toBe(dest)
-    })
-
-    it('throws BadRequestException when x-workspace-id header is missing', () => {
-      expect(() => controller.create(undefined, makeDto())).toThrow(BadRequestException)
     })
   })
 
@@ -70,10 +66,6 @@ describe('DestinationController', () => {
       expect(service.findAll).toHaveBeenCalledWith(WORKSPACE_ID)
       expect(result).toBe(destinations)
     })
-
-    it('throws BadRequestException when x-workspace-id header is missing', () => {
-      expect(() => controller.findAll(undefined)).toThrow(BadRequestException)
-    })
   })
 
   describe('findOne', () => {
@@ -85,10 +77,6 @@ describe('DestinationController', () => {
 
       expect(service.findOne).toHaveBeenCalledWith(WORKSPACE_ID, dest.id)
       expect(result).toBe(dest)
-    })
-
-    it('throws BadRequestException when x-workspace-id header is missing', () => {
-      expect(() => controller.findOne(undefined, randomUUID())).toThrow(BadRequestException)
     })
 
     it('propagates NotFoundException from service', async () => {

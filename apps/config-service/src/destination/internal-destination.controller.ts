@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Headers, BadRequestException, ParseUUIDPipe } from '@nestjs/common'
+import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common'
+import { WorkspaceId } from '@flowmesh/nestjs-common'
 import { DestinationService } from './destination.service'
 
 // Internal-only endpoint — not exposed through the API gateway.
@@ -9,10 +10,9 @@ export class InternalDestinationController {
 
   @Get(':id')
   findOneWithConfig(
-    @Headers('x-workspace-id') workspaceId: string | undefined,
+    @WorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    if (!workspaceId) throw new BadRequestException('x-workspace-id header is required')
     return this.service.findOneWithConfig(workspaceId, id)
   }
 }
