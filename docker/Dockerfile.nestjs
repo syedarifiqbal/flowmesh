@@ -23,15 +23,12 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 # Every workspace member's package.json — required so pnpm can resolve the
 # full dep graph without copying all source files (keeps this layer cacheable).
 COPY packages/nestjs-common/package.json ./packages/nestjs-common/
-COPY packages/shared-types/package.json   ./packages/shared-types/
-COPY packages/sdk-node/package.json       ./packages/sdk-node/
-COPY packages/ui-components/package.json  ./packages/ui-components/
+COPY packages/shared-types/package.json  ./packages/shared-types/
 COPY apps/ingestion/package.json      ./apps/ingestion/
 COPY apps/pipeline/package.json       ./apps/pipeline/
 COPY apps/auth/package.json           ./apps/auth/
 COPY apps/config-service/package.json ./apps/config-service/
 COPY apps/api-gateway/package.json    ./apps/api-gateway/
-COPY apps/delivery/package.json       ./apps/delivery/
 
 RUN pnpm install --frozen-lockfile
 
@@ -68,10 +65,8 @@ ENV NODE_ENV=production
 # Workspace manifests for production install (no devDeps)
 COPY --from=deps /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/package.json ./
 COPY --from=deps /app/packages/nestjs-common/package.json ./packages/nestjs-common/
-COPY --from=deps /app/packages/shared-types/package.json   ./packages/shared-types/
-COPY --from=deps /app/packages/sdk-node/package.json       ./packages/sdk-node/
-COPY --from=deps /app/packages/ui-components/package.json  ./packages/ui-components/
-COPY --from=deps /app/apps/${SERVICE_NAME}/package.json    ./apps/${SERVICE_NAME}/
+COPY --from=deps /app/packages/shared-types/package.json  ./packages/shared-types/
+COPY --from=deps /app/apps/${SERVICE_NAME}/package.json   ./apps/${SERVICE_NAME}/
 
 RUN pnpm install --frozen-lockfile --prod
 
