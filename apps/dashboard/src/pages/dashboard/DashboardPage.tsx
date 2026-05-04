@@ -70,10 +70,14 @@ function QuickStartStep({
   )
 }
 
+interface Destination {
+  id: string
+}
+
 export default function DashboardPage() {
   const workspaceName = localStorage.getItem('workspace_name') ?? 'My Workspace'
 
-  const [pipelinesQuery, apiKeysQuery] = useQueries({
+  const [pipelinesQuery, apiKeysQuery, destinationsQuery, eventsQuery] = useQueries({
     queries: [
       {
         queryKey: ['pipelines'],
@@ -83,21 +87,35 @@ export default function DashboardPage() {
         queryKey: ['api-keys'],
         queryFn: () => api.get<ApiKey[]>('/api-keys').then((r) => r.data),
       },
+      {
+        queryKey: ['destinations'],
+        queryFn: () => api.get<Destination[]>('/destinations').then((r) => r.data),
+      },
+      {
+        queryKey: ['events-count'],
+        queryFn: () =>
+          api.get<{ total: number }>('/events?limit=1').then((r) => r.data),
+        refetchInterval: 30000,
+      },
     ],
   })
 
   const pipelines = pipelinesQuery.data ?? []
   const apiKeys = (apiKeysQuery.data ?? []).filter((k) => !k.revokedAt)
-  const isLoading = pipelinesQuery.isLoading || apiKeysQuery.isLoading
+  const destinations = destinationsQuery.data ?? []
+  const totalEvents = eventsQuery.data?.total ?? 0
+  const isLoading = pipelinesQuery.isLoading || apiKeysQuery.isLoading || destinationsQuery.isLoading
 
   const activePipelines = pipelines.filter((p) => p.enabled).length
   const totalPipelines = pipelines.length
   const totalApiKeys = apiKeys.length
+  const totalDestinations = destinations.length
 
   const hasApiKey = totalApiKeys > 0
+  const hasDestination = totalDestinations > 0
   const hasPipeline = totalPipelines > 0
   const hasActivePipeline = activePipelines > 0
-  const allDone = hasApiKey && hasPipeline && hasActivePipeline
+  const allDone = hasApiKey && hasDestination && hasPipeline && hasActivePipeline
 
   return (
     <div className="space-y-6">
@@ -106,10 +124,12 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500 mt-0.5">Overview of your event pipeline</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         <StatCard label="Total Pipelines" value={totalPipelines} isLoading={isLoading} />
         <StatCard label="Active Pipelines" value={activePipelines} isLoading={isLoading} />
+        <StatCard label="Destinations" value={totalDestinations} isLoading={isLoading} />
         <StatCard label="API Keys" value={totalApiKeys} isLoading={isLoading} />
+        <StatCard label="Events Ingested" value={totalEvents.toLocaleString()} isLoading={eventsQuery.isLoading} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -125,6 +145,12 @@ export default function DashboardPage() {
                 label="Create an API key to authenticate event ingestion"
                 to="/api-keys"
                 cta="Create key"
+              />
+              <QuickStartStep
+                done={hasDestination}
+                label="Add a destination to deliver events to"
+                to="/destinations"
+                cta="Add destination"
               />
               <QuickStartStep
                 done={hasPipeline}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { GitBranch, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react'
 import type { Pipeline } from '@flowmesh/shared-types'
 import api from '../../lib/api'
@@ -9,6 +10,7 @@ import CreatePipelineModal from './CreatePipelineModal'
 
 export default function PipelinesPage() {
   const { toast } = useToastContext()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Pipeline | null>(null)
@@ -83,7 +85,8 @@ export default function PipelinesPage() {
             {data.map((pipeline) => (
               <div
                 key={pipeline.id}
-                className="bg-white border border-gray-200 rounded-lg shadow-sm px-5 py-4 flex items-center gap-4"
+                onClick={() => navigate(`/pipelines/${pipeline.id}`)}
+                className="bg-white border border-gray-200 rounded-lg shadow-sm px-5 py-4 flex items-center gap-4 cursor-pointer hover:border-indigo-300 transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -123,9 +126,10 @@ export default function PipelinesPage() {
                   </span>
 
                   <button
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.stopPropagation()
                       toggleMutation.mutate({ id: pipeline.id, enabled: !pipeline.enabled })
-                    }
+                    }}
                     disabled={toggleMutation.isPending}
                     aria-label={pipeline.enabled ? 'Disable pipeline' : 'Enable pipeline'}
                     className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
@@ -138,7 +142,7 @@ export default function PipelinesPage() {
                   </button>
 
                   <button
-                    onClick={() => setDeleteTarget(pipeline)}
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(pipeline) }}
                     aria-label={`Delete pipeline ${pipeline.name}`}
                     className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                   >

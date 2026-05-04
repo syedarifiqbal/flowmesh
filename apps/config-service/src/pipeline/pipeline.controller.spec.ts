@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { randomUUID } from 'crypto'
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { NotFoundException } from '@nestjs/common'
 import { PipelineController } from './pipeline.controller'
 import { PipelineService } from './pipeline.service'
 import { CreatePipelineDto } from './dto/create-pipeline.dto'
@@ -48,7 +48,7 @@ describe('PipelineController', () => {
   })
 
   describe('create', () => {
-    it('delegates to service with workspace id from header', async () => {
+    it('delegates to service with workspace id', async () => {
       const pipeline = makePipeline()
       service.create.mockResolvedValue(pipeline)
 
@@ -56,10 +56,6 @@ describe('PipelineController', () => {
 
       expect(service.create).toHaveBeenCalledWith(WORKSPACE_ID, makeDto())
       expect(result).toBe(pipeline)
-    })
-
-    it('throws BadRequestException when x-workspace-id header is missing', () => {
-      expect(() => controller.create(undefined, makeDto())).toThrow(BadRequestException)
     })
   })
 
@@ -73,10 +69,6 @@ describe('PipelineController', () => {
       expect(service.findAll).toHaveBeenCalledWith(WORKSPACE_ID)
       expect(result).toBe(pipelines)
     })
-
-    it('throws BadRequestException when x-workspace-id header is missing', () => {
-      expect(() => controller.findAll(undefined)).toThrow(BadRequestException)
-    })
   })
 
   describe('findOne', () => {
@@ -88,10 +80,6 @@ describe('PipelineController', () => {
 
       expect(service.findOne).toHaveBeenCalledWith(WORKSPACE_ID, pipeline.id)
       expect(result).toBe(pipeline)
-    })
-
-    it('throws BadRequestException when x-workspace-id header is missing', () => {
-      expect(() => controller.findOne(undefined, randomUUID())).toThrow(BadRequestException)
     })
 
     it('propagates NotFoundException from service', async () => {

@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service'
 import { RedisService } from '../redis/redis.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
+import { QueryEventsDto } from './dto/query-events.dto'
 
 export interface IngestResult {
   eventId: string
@@ -19,6 +20,46 @@ export class IngestionService {
     private readonly redis: RedisService,
     @InjectPinoLogger(IngestionService.name) private readonly logger: PinoLogger,
   ) {}
+
+  async findAll(workspaceId: string, query: QueryEventsDto) {
+    const limit = query.limit ?? 50
+    const offset = query.offset ?? 0
+
+    const where: Record<string, unknown> = { workspaceId }
+    if (query.event) where['eventName'] = query.event
+    if (query.source) where['source'] = query.source
+    if (query.search) {
+      where['OR'] = [
+        { eventName: { contains: query.search, mode: 'insensitive' } },
+        { source: { contains: query.search, mode: 'insensitive' } },
+        { correlationId: { contains: query.search, mode: 'insensitive' } },
+      ]
+    }
+
+    const [events, total] = await Promise.all([
+      this.prisma.event.findMany({
+        where,
+        orderBy: { [query.sortBy ?? 'receivedAt']: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          eventId: true,
+          correlationId: true,
+          eventName: true,
+          source: true,
+          version: true,
+          userId: true,
+          anonymousId: true,
+          properties: true,
+          receivedAt: true,
+        },
+      }),
+      this.prisma.event.count({ where }),
+    ])
+
+    return { events, total, limit, offset }
+  }
 
   async ingest(dto: IngestEventDto, workspaceId: string): Promise<IngestResult> {
     const eventId = dto.eventId ?? randomUUID()
