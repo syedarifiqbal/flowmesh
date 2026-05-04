@@ -77,7 +77,7 @@ interface Destination {
 export default function DashboardPage() {
   const workspaceName = localStorage.getItem('workspace_name') ?? 'My Workspace'
 
-  const [pipelinesQuery, apiKeysQuery, destinationsQuery] = useQueries({
+  const [pipelinesQuery, apiKeysQuery, destinationsQuery, eventsQuery] = useQueries({
     queries: [
       {
         queryKey: ['pipelines'],
@@ -91,12 +91,19 @@ export default function DashboardPage() {
         queryKey: ['destinations'],
         queryFn: () => api.get<Destination[]>('/destinations').then((r) => r.data),
       },
+      {
+        queryKey: ['events-count'],
+        queryFn: () =>
+          api.get<{ total: number }>('/events?limit=1').then((r) => r.data),
+        refetchInterval: 30000,
+      },
     ],
   })
 
   const pipelines = pipelinesQuery.data ?? []
   const apiKeys = (apiKeysQuery.data ?? []).filter((k) => !k.revokedAt)
   const destinations = destinationsQuery.data ?? []
+  const totalEvents = eventsQuery.data?.total ?? 0
   const isLoading = pipelinesQuery.isLoading || apiKeysQuery.isLoading || destinationsQuery.isLoading
 
   const activePipelines = pipelines.filter((p) => p.enabled).length
@@ -117,11 +124,12 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500 mt-0.5">Overview of your event pipeline</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         <StatCard label="Total Pipelines" value={totalPipelines} isLoading={isLoading} />
         <StatCard label="Active Pipelines" value={activePipelines} isLoading={isLoading} />
         <StatCard label="Destinations" value={totalDestinations} isLoading={isLoading} />
         <StatCard label="API Keys" value={totalApiKeys} isLoading={isLoading} />
+        <StatCard label="Events Ingested" value={totalEvents.toLocaleString()} isLoading={eventsQuery.isLoading} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
