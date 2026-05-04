@@ -8,6 +8,7 @@ import { ConfigClientModule } from './config-client/config-client.module'
 import { StepsModule } from './steps/steps.module'
 import { FanoutModule } from './fanout/fanout.module'
 import { ConsumerModule } from './consumer/consumer.module'
+import { ExecutionsModule } from './executions/executions.module'
 import {
   HealthModule,
   HttpExceptionFilter,
@@ -56,6 +57,7 @@ const isDev = process.env.NODE_ENV !== 'production'
     StepsModule,
     FanoutModule,
     ConsumerModule,
+    ExecutionsModule,
     HealthModule,
   ],
   providers: [HttpExceptionFilter],
