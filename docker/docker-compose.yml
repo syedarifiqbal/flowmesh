@@ -251,44 +251,33 @@ services:
     networks:
       - flowmesh
 
-  analytics:
-    build:
-      context: ../apps/analytics
-      dockerfile: Dockerfile
-    container_name: flowmesh-analytics
-    restart: unless-stopped
-    env_file: ../.env
-    environment:
-      PORT: 3006
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
-      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
-      REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      pgbouncer:
-        condition: service_started
-    networks:
-      - flowmesh
-
-  alert:
-    build:
-      context: ../apps/alert
-      dockerfile: Dockerfile
-    container_name: flowmesh-alert
-    restart: unless-stopped
-    env_file: ../.env
-    environment:
-      PORT: 3007
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
-      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      pgbouncer:
-        condition: service_started
-    networks:
-      - flowmesh
+  # analytics and alert are Phase 3 — not yet implemented.
+  # Uncomment when their Dockerfiles exist.
+  #
+  # analytics:
+  #   build:
+  #     context: ../apps/analytics
+  #     dockerfile: Dockerfile
+  #   container_name: flowmesh-analytics
+  #   environment:
+  #     PORT: 3006
+  #     DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+  #     RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+  #     REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+  #   networks:
+  #     - flowmesh
+  #
+  # alert:
+  #   build:
+  #     context: ../apps/alert
+  #     dockerfile: Dockerfile
+  #   container_name: flowmesh-alert
+  #   environment:
+  #     PORT: 3007
+  #     DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+  #     RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+  #   networks:
+  #     - flowmesh
 
   # ─── Observability ───────────────────────────────────────────
 
