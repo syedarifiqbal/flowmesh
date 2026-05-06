@@ -13,13 +13,20 @@ interface Destination {
   config: Record<string, string>
 }
 
+interface PipelineStep {
+  id: string
+  name: string
+  type: string
+  config: Record<string, unknown>
+}
+
 interface Pipeline {
   id: string
   name: string
   description?: string
   enabled: boolean
   trigger: { type: string; events: string[] }
-  steps: unknown[]
+  steps: PipelineStep[]
   destinations: string[]
 }
 
@@ -118,6 +125,9 @@ export default function PipelineDetailPage() {
       api
         .put(`/pipelines/${id}`, {
           destinations: (pipeline?.destinations ?? []).filter((d) => d !== destId),
+          steps: (pipeline?.steps ?? []).filter(
+            (s) => !(s.type === 'destination' && (s.config as Record<string, unknown>).destinationId === destId),
+          ),
         })
         .then((r) => r.data),
     onSuccess: () => {
@@ -364,6 +374,7 @@ export default function PipelineDetailPage() {
         open={showAddDest}
         pipelineId={pipeline.id}
         attachedIds={pipeline.destinations}
+        currentSteps={pipeline.steps}
         onClose={() => setShowAddDest(false)}
       />
     </>

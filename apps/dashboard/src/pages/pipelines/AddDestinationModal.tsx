@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Share2, ExternalLink } from 'lucide-react'
+import { Share2, ExternalLink, AlertTriangle } from 'lucide-react'
 import api from '../../lib/api'
 import { useToastContext } from '../../components/ui/ToastProvider'
 
@@ -9,17 +9,26 @@ interface Destination {
   id: string
   name: string
   type: string
+  status: 'untested' | 'verified' | 'failed'
   config: Record<string, string>
+}
+
+interface PipelineStep {
+  id: string
+  name: string
+  type: string
+  config: Record<string, unknown>
 }
 
 interface Props {
   open: boolean
   pipelineId: string
   attachedIds: string[] | undefined
+  currentSteps: PipelineStep[]
   onClose: () => void
 }
 
-export default function AddDestinationModal({ open, pipelineId, attachedIds, onClose }: Props) {
+export default function AddDestinationModal({ open, pipelineId, attachedIds, currentSteps, onClose }: Props) {
   const { toast } = useToastContext()
   const queryClient = useQueryClient()
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -41,10 +50,19 @@ export default function AddDestinationModal({ open, pipelineId, attachedIds, onC
   })
 
   const addMutation = useMutation({
-    mutationFn: (destId: string) =>
+    mutationFn: (dest: Destination) =>
       api
         .put(`/pipelines/${pipelineId}`, {
-          destinations: [...(attachedIds ?? []), destId],
+          destinations: [...(attachedIds ?? []), dest.id],
+          steps: [
+            ...currentSteps,
+            {
+              id: crypto.randomUUID(),
+              name: dest.name,
+              type: 'destination',
+              config: { destinationId: dest.id },
+            },
+          ],
         })
         .then((r) => r.data),
     onSuccess: () => {
@@ -102,7 +120,7 @@ export default function AddDestinationModal({ open, pipelineId, attachedIds, onC
             {available.map((dest) => (
               <button
                 key={dest.id}
-                onClick={() => addMutation.mutate(dest.id)}
+                onClick={() => addMutation.mutate(dest)}
                 disabled={addMutation.isPending}
                 className="w-full flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors text-left disabled:opacity-50"
               >
@@ -118,9 +136,16 @@ export default function AddDestinationModal({ open, pipelineId, attachedIds, onC
                     </div>
                   )}
                 </div>
-                <span className="ml-auto shrink-0 px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full border border-indigo-200">
-                  {dest.type}
-                </span>
+                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                  {dest.status !== 'verified' && (
+                    <span title={dest.status === 'failed' ? 'Connection test failed' : 'Not yet tested'}>
+                      <AlertTriangle className={`w-3.5 h-3.5 ${dest.status === 'failed' ? 'text-red-400' : 'text-amber-400'}`} />
+                    </span>
+                  )}
+                  <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full border border-indigo-200">
+                    {dest.type}
+                  </span>
+                </div>
               </button>
             ))}
           </div>

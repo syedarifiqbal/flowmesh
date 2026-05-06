@@ -94,7 +94,7 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
       name: string
       description: string
       trigger: { type: 'event'; events: string[] }
-      steps: never[]
+      steps: { id: string; name: string; type: 'destination'; config: { destinationId: string } }[]
       destinations: string[]
       enabled: boolean
     }) => api.post('/pipelines', payload).then((r) => r.data),
@@ -121,7 +121,15 @@ export default function CreatePipelineModal({ open, onClose }: Props) {
           name: values.name,
           description: values.description ?? '',
           trigger: { type: 'event', events },
-          steps: [],
+          steps: selectedDestinations.map((destId) => {
+            const dest = destinations?.find((d) => d.id === destId)
+            return {
+              id: crypto.randomUUID(),
+              name: dest?.name ?? 'Destination',
+              type: 'destination' as const,
+              config: { destinationId: destId },
+            }
+          }),
           destinations: selectedDestinations,
           enabled: true,
         })
