@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { randomUUID, randomBytes } from 'crypto'
 import { NotFoundException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { PinoLogger } from 'nestjs-pino'
 import { DestinationService } from './destination.service'
 import { PrismaService } from '../prisma/prisma.service'
@@ -22,6 +23,7 @@ const makeDestination = (overrides = {}) => ({
   type: 'slack',
   encryptedConfig: 'aabbcc',
   iv: randomBytes(12).toString('hex'),
+  status: 'untested',
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -49,6 +51,7 @@ describe('DestinationService', () => {
     encrypt: ReturnType<typeof vi.fn>
     decrypt: ReturnType<typeof vi.fn>
   }
+  let configService: { get: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     prisma = {
@@ -64,9 +67,11 @@ describe('DestinationService', () => {
       encrypt: vi.fn().mockReturnValue({ encrypted: 'enc', iv: 'ivhex' }),
       decrypt: vi.fn().mockReturnValue('{"webhookUrl":"https://example.com"}'),
     }
+    configService = { get: vi.fn().mockReturnValue('http://delivery:3003') }
     service = new DestinationService(
       prisma as unknown as PrismaService,
       encryption as unknown as EncryptionService,
+      configService as unknown as ConfigService,
       mockLogger,
     )
   })

@@ -31,6 +31,7 @@ model Destination {
   type            String
   encryptedConfig String   @map("encrypted_config")
   iv              String
+  status          String   @default("untested")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

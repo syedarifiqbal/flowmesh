@@ -1,7 +1,7 @@
 import {
   Controller, Get, Post, Put, Delete,
   Body, Param, HttpCode, HttpStatus,
-  ParseUUIDPipe,
+  ParseUUIDPipe, HttpException,
 } from '@nestjs/common'
 import { WorkspaceId } from '@flowmesh/nestjs-common'
 import { DestinationService } from './destination.service'
@@ -40,6 +40,18 @@ export class DestinationController {
     @Body() dto: UpdateDestinationDto,
   ) {
     return this.service.update(workspaceId, id, dto)
+  }
+
+  @Post(':id/test')
+  async testConnection(
+    @WorkspaceId() workspaceId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const result = await this.service.testConnection(workspaceId, id)
+    if (!result.ok) {
+      throw new HttpException({ ok: false, error: result.error }, HttpStatus.UNPROCESSABLE_ENTITY)
+    }
+    return { ok: true }
   }
 
   @Delete(':id')

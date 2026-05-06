@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
 import { PrismaService } from '../prisma/prisma.service'
 import { EncryptionService } from '../encryption/encryption.service'
@@ -10,6 +11,7 @@ export class DestinationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
+    private readonly config: ConfigService,
     @InjectPinoLogger(DestinationService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -66,6 +68,7 @@ export class DestinationService {
       const { encrypted, iv } = this.encryption.encrypt(JSON.stringify(dto.config))
       updateData.encryptedConfig = encrypted
       updateData.iv = iv
+      updateData.status = 'untested'
     }
 
     const destination = await this.prisma.destination.update({
@@ -75,6 +78,39 @@ export class DestinationService {
 
     this.logger.info({ destinationId: id, workspaceId }, 'Destination updated')
     return this.toPublic(destination)
+  }
+
+  async testConnection(workspaceId: string, id: string): Promise<{ ok: boolean; error?: string }> {
+    const destination = await this.prisma.destination.findFirst({ where: { id, workspaceId } })
+    if (!destination) throw new NotFoundException(`Destination ${id} not found`)
+
+    const config = JSON.parse(this.encryption.decrypt(destination.encryptedConfig, destination.iv))
+    const deliveryUrl = this.config.get<string>('DELIVERY_SERVICE_URL')!
+
+    let ok = false
+    let error: string | undefined
+
+    try {
+      const res = await fetch(`${deliveryUrl}/internal/test-destination`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: destination.type, config }),
+        signal: AbortSignal.timeout(15_000),
+      })
+      const body = await res.json() as { ok: boolean; error?: string }
+      ok = body.ok
+      error = body.error
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'delivery service unreachable'
+    }
+
+    await this.prisma.destination.update({
+      where: { id },
+      data: { status: ok ? 'verified' : 'failed' },
+    })
+
+    this.logger.info({ destinationId: id, workspaceId, ok }, 'destination test completed')
+    return { ok, error }
   }
 
   async remove(workspaceId: string, id: string) {
@@ -89,12 +125,13 @@ export class DestinationService {
   }
 
   // never expose encrypted fields or iv in API responses
-  private toPublic(destination: { id: string; workspaceId: string; name: string; type: string; createdAt: Date; updatedAt: Date }) {
+  private toPublic(destination: { id: string; workspaceId: string; name: string; type: string; status: string; createdAt: Date; updatedAt: Date }) {
     return {
       id: destination.id,
       workspaceId: destination.workspaceId,
       name: destination.name,
       type: destination.type,
+      status: destination.status,
       createdAt: destination.createdAt,
       updatedAt: destination.updatedAt,
     }
