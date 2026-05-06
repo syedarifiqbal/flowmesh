@@ -2,14 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PinoLogger } from 'nestjs-pino'
 import { PrismaService } from './prisma.service'
 
-vi.mock('@prisma/client', () => {
-  class PrismaClient {
-    $connect = vi.fn().mockResolvedValue(undefined)
-    $disconnect = vi.fn().mockResolvedValue(undefined)
-  }
-  return { PrismaClient }
-})
-
 const mockLogger = {
   info: vi.fn(),
   debug: vi.fn(),
@@ -23,6 +15,8 @@ describe('PrismaService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     service = new PrismaService(mockLogger)
+    vi.spyOn(service, '$connect').mockResolvedValue()
+    vi.spyOn(service, '$disconnect').mockResolvedValue()
   })
 
   it('connects to the database on init', async () => {
