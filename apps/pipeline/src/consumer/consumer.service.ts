@@ -122,7 +122,7 @@ export class ConsumerService implements OnModuleInit, OnModuleDestroy {
     // 1. Idempotency — skip if already fully processed
     const alreadyProcessed = await this.redis.isMessageProcessed(meta.messageId)
     if (alreadyProcessed) {
-      this.logger.debug({ messageId: meta.messageId }, 'duplicate message — acking without processing')
+      this.logger.debug({ messageId: meta.messageId, correlationId: meta.correlationId }, 'duplicate message — acking without processing')
       this.channel.ack(msg)
       return
     }
@@ -148,7 +148,7 @@ export class ConsumerService implements OnModuleInit, OnModuleDestroy {
       pipelines = await this.configClient.getPipelinesForWorkspace(meta.workspaceId)
     } catch (err) {
       const error = err as Error
-      this.logger.error({ messageId: meta.messageId, err: error.message }, 'failed to load pipelines — nacking to DLQ')
+      this.logger.error({ messageId: meta.messageId, correlationId: meta.correlationId, err: error.message }, 'failed to load pipelines — nacking to DLQ')
       this.channel.nack(msg, false, false)
       return
     }
@@ -158,7 +158,7 @@ export class ConsumerService implements OnModuleInit, OnModuleDestroy {
     )
 
     if (matchingPipelines.length === 0) {
-      this.logger.debug({ messageId: meta.messageId, event: payload.event }, 'no matching pipelines — acking')
+      this.logger.debug({ messageId: meta.messageId, correlationId: meta.correlationId, event: payload.event }, 'no matching pipelines — acking')
       this.channel.ack(msg)
       return
     }
@@ -170,7 +170,7 @@ export class ConsumerService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (err) {
       const error = err as Error
-      this.logger.error({ messageId: meta.messageId, err: error.message }, 'pipeline saga failed — nacking to DLQ')
+      this.logger.error({ messageId: meta.messageId, correlationId: meta.correlationId, err: error.message }, 'pipeline saga failed — nacking to DLQ')
       this.channel.nack(msg, false, false)
       return
     }
@@ -178,7 +178,7 @@ export class ConsumerService implements OnModuleInit, OnModuleDestroy {
     // 5. Commit: mark messageId as processed, then ack
     await this.redis.markMessageProcessed(meta.messageId)
     this.channel.ack(msg)
-    this.logger.log({ messageId: meta.messageId, pipelines: matchingPipelines.length }, 'message processed successfully')
+    this.logger.log({ messageId: meta.messageId, correlationId: meta.correlationId, pipelines: matchingPipelines.length }, 'message processed successfully')
   }
 
   private async runPipelineSaga(
@@ -225,7 +225,7 @@ export class ConsumerService implements OnModuleInit, OnModuleDestroy {
       const destinationSteps = pipeline.steps.filter((s: PipelineStep) => s.type === 'destination')
       for (const step of destinationSteps) {
         const destinationId = (step.config as Record<string, unknown>)['destinationId'] as string
-        await this.fanout.publishToDestination(execution.id, destinationId, processedEvent)
+        await this.fanout.publishToDestination(execution.id, destinationId, meta.workspaceId, processedEvent)
       }
 
       await this.prisma.pipelineExecution.update({

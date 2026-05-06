@@ -8,6 +8,8 @@ import { ProxyService } from '../proxy/proxy.service'
 // Routes all authenticated management API calls to the appropriate downstream service.
 // /pipelines/* and /destinations/* → config-service
 // /api-keys/* → auth service
+// /events* (GET reads) → ingestion service
+// /executions* → pipeline service
 @Controller()
 @UseGuards(AuthGuard, RateLimitGuard)
 @RateLimit('mgmt')
@@ -32,6 +34,20 @@ export class ManagementController {
   @All('api-keys*')
   async apiKeys(@Req() req: Request, @Res() res: Response): Promise<void> {
     const base = this.config.get<string>('AUTH_SERVICE_URL')!
+    // Auth service mounts api-keys under /auth/api-keys internally
+    const upstreamPath = req.path.replace(/^\/api-keys/, '/auth/api-keys')
+    await this.proxy.forward(req, res, `${base}${upstreamPath}`)
+  }
+
+  @All('events*')
+  async events(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const base = this.config.get<string>('INGESTION_SERVICE_URL')!
+    await this.proxy.forward(req, res, `${base}${req.path}`)
+  }
+
+  @All('executions*')
+  async executions(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const base = this.config.get<string>('PIPELINE_SERVICE_URL')!
     await this.proxy.forward(req, res, `${base}${req.path}`)
   }
 }

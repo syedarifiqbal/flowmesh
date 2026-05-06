@@ -4,7 +4,7 @@ COMPOSE     := docker-compose -f $(DOCKER_DIR)/docker-compose.yml
 # ─── Infrastructure ──────────────────────────────────────────────────────────
 
 infra-up:
-	$(COMPOSE) up postgres redis-ephemeral redis-persistent rabbitmq -d
+	$(COMPOSE) up postgres redis-ephemeral redis-persistent rabbitmq loki promtail grafana -d
 
 infra-down:
 	$(COMPOSE) down
@@ -14,6 +14,20 @@ infra-logs:
 
 infra-psql:
 	docker exec -it flowmesh-postgres psql -U flowmesh -d flowmesh
+
+# ─── Observability ───────────────────────────────────────────────────────────
+
+obs-up:
+	$(COMPOSE) up loki promtail grafana -d
+
+obs-down:
+	$(COMPOSE) stop loki promtail grafana
+
+obs-logs:
+	$(COMPOSE) logs -f loki promtail grafana
+
+grafana-open:
+	open http://localhost:3200
 
 # ─── Full stack ───────────────────────────────────────────────────────────────
 
@@ -60,6 +74,20 @@ pipeline-migrate:
 pipeline-generate:
 	pnpm --filter @flowmesh/pipeline prisma:generate
 
+# ─── Delivery service (Go) ───────────────────────────────────────────────────
+
+delivery-dev:
+	cd apps/delivery && export $$(grep -v '^#' .env | xargs) && air -c .air.toml
+
+delivery-build:
+	cd apps/delivery && go build -o dist/delivery .
+
+delivery-test:
+	cd apps/delivery && go test ./... -cover
+
+delivery-test-race:
+	cd apps/delivery && go test ./... -race -timeout 60s
+
 # ─── Config service ──────────────────────────────────────────────────────────
 
 config-dev:
@@ -99,6 +127,11 @@ auth-generate:
 
 gateway-dev:
 	pnpm --filter @flowmesh/api-gateway dev
+
+# ─── Dashboard ───────────────────────────────────────────────────────────────
+
+dashboard-dev:
+	pnpm --filter @flowmesh/dashboard dev
 
 # ─── Testing ─────────────────────────────────────────────────────────────────
 
@@ -140,10 +173,11 @@ env-setup:
 		echo "skipped .env (already exists)"; \
 	fi
 
-.PHONY: infra-up infra-down infra-logs infra-psql up down down-v logs \
+.PHONY: infra-up infra-down infra-logs infra-psql obs-up obs-down obs-logs grafana-open up down down-v logs \
         ingestion-dev ingestion-migrate-create ingestion-migrate ingestion-generate \
         pipeline-dev pipeline-migrate-create pipeline-migrate pipeline-generate \
+        delivery-dev delivery-build delivery-test delivery-test-race \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         auth-dev auth-migrate-create auth-migrate auth-generate \
-        gateway-dev \
+        gateway-dev dashboard-dev \
         test test-integration test-coverage test-watch install gen-jwt-secret env-setup

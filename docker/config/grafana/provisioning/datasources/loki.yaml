@@ -1,0 +1,20 @@
+# Grafana datasource provisioning — pre-wires Loki so you don't need to
+# manually add it through the UI on first boot.
+# Grafana reads this file at startup from the provisioning directory.
+
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: true
+    jsonData:
+      maxLines: 5000
+      # Derive log level from the `level` label Promtail sets.
+      # This enables Grafana's colour-coded log level display.
+      derivedFields:
+        - name: correlationId
+          matcherRegex: '"correlationId":"([^"]+)"'
+          url: ''

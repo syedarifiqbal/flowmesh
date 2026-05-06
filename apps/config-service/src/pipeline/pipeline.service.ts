@@ -23,6 +23,7 @@ export class PipelineService {
         description: dto.description,
         trigger: dto.trigger as object,
         steps: dto.steps as object,
+        destinations: (dto.destinations ?? []) as object,
         enabled: dto.enabled ?? true,
       },
     })
@@ -71,6 +72,7 @@ export class PipelineService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.trigger !== undefined && { trigger: dto.trigger as object }),
         ...(dto.steps !== undefined && { steps: dto.steps as object }),
+        ...(dto.destinations !== undefined && { destinations: dto.destinations as object }),
         ...(dto.enabled !== undefined && { enabled: dto.enabled }),
       },
     })
