@@ -115,8 +115,10 @@ func (c *Consumer) handleMessageInternal(ctx context.Context, a acker, body []by
 		return
 	}
 
+	correlationId, _ := fm.Event["correlationId"].(string)
 	log := c.logger.With(
 		"messageId", fm.Meta.MessageID,
+		"correlationId", correlationId,
 		"destinationId", fm.Meta.DestinationID,
 		"workspaceId", fm.Meta.WorkspaceID,
 	)
