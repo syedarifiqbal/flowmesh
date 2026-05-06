@@ -38,7 +38,8 @@ services:
       POOL_MODE: transaction
       MAX_CLIENT_CONN: 200
       DEFAULT_POOL_SIZE: 20
-      AUTH_TYPE: trust
+      AUTH_TYPE: plain
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits,search_path
     ports:
       - "5432:5432"
     depends_on:
@@ -131,7 +132,6 @@ services:
       PIPELINE_SERVICE_URL: http://pipeline:3002
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
-      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3000:3000"
     depends_on:
@@ -154,7 +154,7 @@ services:
     env_file: ../.env
     environment:
       PORT: 3001
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=ingestion
       RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
@@ -232,8 +232,6 @@ services:
       PORT: 3004
       DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=auth
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
     depends_on:
@@ -256,8 +254,9 @@ services:
     env_file: ../.env
     environment:
       PORT: 3005
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=config
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+      DELIVERY_SERVICE_URL: http://delivery:3003
     depends_on:
       pgbouncer:
         condition: service_started

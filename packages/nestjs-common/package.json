@@ -9,9 +9,11 @@
     "typecheck": "tsc --noEmit",
     "dev": "tsc --watch"
   },
+  "dependencies": {
+    "amqplib": "^0.10.3"
+  },
   "peerDependencies": {
     "@nestjs/common": "^10.0.0",
-    "amqplib": "^0.10.0",
     "express": "^4.18.0"
   },
   "devDependencies": {

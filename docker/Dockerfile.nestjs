@@ -14,11 +14,14 @@ ARG SERVICE_PORT=3000
 
 # ── deps: install all workspace dependencies ─────────────────────────────────
 FROM node:20-alpine AS deps
+# OpenSSL is required for Prisma to detect the correct binary target.
+# Without it, Prisma defaults to openssl-1.1.x which is not available in Alpine 3.18+.
+RUN apk add --no-cache openssl
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /app
 
 # Workspace manifests and lockfile (root level)
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json .npmrc ./
 
 # Every workspace member's package.json — required so pnpm can resolve the
 # full dep graph without copying all source files (keeps this layer cacheable).
@@ -58,15 +61,22 @@ RUN pnpm --filter @flowmesh/${SERVICE_NAME} run build
 FROM node:20-alpine AS production
 ARG SERVICE_NAME
 ARG SERVICE_PORT
+RUN apk add --no-cache openssl
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Workspace manifests for production install (no devDeps)
-COPY --from=deps /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/package.json ./
+# All workspace manifests — required so pnpm can resolve peer deps across the full graph.
+# nestjs-common declares @nestjs/common as a peerDependency; without the full workspace
+# manifest set, pnpm cannot wire up the peer correctly for the production install.
+COPY --from=deps /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/package.json /app/.npmrc ./
 COPY --from=deps /app/packages/nestjs-common/package.json ./packages/nestjs-common/
 COPY --from=deps /app/packages/shared-types/package.json  ./packages/shared-types/
-COPY --from=deps /app/apps/${SERVICE_NAME}/package.json   ./apps/${SERVICE_NAME}/
+COPY --from=deps /app/apps/ingestion/package.json      ./apps/ingestion/
+COPY --from=deps /app/apps/pipeline/package.json       ./apps/pipeline/
+COPY --from=deps /app/apps/auth/package.json           ./apps/auth/
+COPY --from=deps /app/apps/config-service/package.json ./apps/config-service/
+COPY --from=deps /app/apps/api-gateway/package.json    ./apps/api-gateway/
 
 RUN pnpm install --frozen-lockfile --prod
 
