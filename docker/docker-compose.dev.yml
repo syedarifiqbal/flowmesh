@@ -37,10 +37,10 @@ services:
 
   delivery:
     build:
-      target: development
+      context: ../apps/delivery
+      dockerfile: Dockerfile.dev
     volumes:
       - ../apps/delivery:/app
-    command: go run .
     environment:
       GO_ENV: development
 

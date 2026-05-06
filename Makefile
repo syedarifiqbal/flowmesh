@@ -77,7 +77,7 @@ pipeline-generate:
 # ─── Delivery service (Go) ───────────────────────────────────────────────────
 
 delivery-dev:
-	cd apps/delivery && export $$(grep -v '^#' .env | xargs) && go run .
+	cd apps/delivery && export $$(grep -v '^#' .env | xargs) && air -c .air.toml
 
 delivery-build:
 	cd apps/delivery && go build -o dist/delivery .
