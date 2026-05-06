@@ -16,6 +16,7 @@ import (
 	"github.com/flowmesh/delivery/internal/config"
 	"github.com/flowmesh/delivery/internal/configclient"
 	"github.com/flowmesh/delivery/internal/consumer"
+	"github.com/flowmesh/delivery/internal/testhandler"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})).With("service", "delivery")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -57,6 +58,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, `{"status":"ok"}`)
 	})
+	mux.HandleFunc("/internal/test-destination", testhandler.Handler)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("0.0.0.0:%d", cfg.Port),
