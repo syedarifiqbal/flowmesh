@@ -16,6 +16,7 @@ import Joi from 'joi'
         CONFIG_SERVICE_URL: Joi.string().required(),
         AUTH_SERVICE_URL: Joi.string().required(),
         PIPELINE_SERVICE_URL: Joi.string().required(),
+        ANALYTICS_SERVICE_URL: Joi.string().required(),
         RATE_LIMIT_INGEST_RPM: Joi.number().default(1000),
         RATE_LIMIT_MGMT_RPM: Joi.number().default(100),
       }),

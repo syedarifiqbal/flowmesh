@@ -66,7 +66,11 @@ services:
 
   analytics:
     build:
-      target: development
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: analytics
+        SERVICE_PORT: 3006
     volumes:
       - ../apps/analytics:/app
       - /app/node_modules
