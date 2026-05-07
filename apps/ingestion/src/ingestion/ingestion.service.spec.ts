@@ -5,6 +5,7 @@ import { IngestionService } from './ingestion.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service'
 import { RedisService } from '../redis/redis.service'
+import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 
 const mockLogger = {
@@ -34,6 +35,7 @@ describe('IngestionService', () => {
     isEventProcessed: ReturnType<typeof vi.fn>
     markEventProcessed: ReturnType<typeof vi.fn>
   }
+  let pubsub: { publishEvent: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     prisma = { event: { create: vi.fn().mockResolvedValue({}) } }
@@ -42,11 +44,13 @@ describe('IngestionService', () => {
       isEventProcessed: vi.fn().mockResolvedValue(false),
       markEventProcessed: vi.fn().mockResolvedValue(undefined),
     }
+    pubsub = { publishEvent: vi.fn().mockResolvedValue(undefined) }
 
     service = new IngestionService(
       prisma as unknown as PrismaService,
       rabbitmq as unknown as RabbitMQService,
       redis as unknown as RedisService,
+      pubsub as unknown as RedisPubSubService,
       mockLogger,
     )
   })

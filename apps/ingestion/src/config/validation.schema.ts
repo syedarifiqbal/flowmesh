@@ -24,4 +24,5 @@ export const appConfigValidationSchema = Joi.object({
   DATABASE_URL: postgresUrlWithSchema('ingestion'),
   RABBITMQ_URL: Joi.string().required(),
   REDIS_PERSISTENT_URL: Joi.string().required(),
+  REDIS_EPHEMERAL_URL: Joi.string().required(),
 })
