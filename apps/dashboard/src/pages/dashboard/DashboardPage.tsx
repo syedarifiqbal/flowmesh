@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { GitBranch, Key, ArrowRight, Zap, Share2, CheckCircle } from 'lucide-react'
 import type { Pipeline } from '@flowmesh/shared-types'
 import api from '../../lib/api'
+import ThroughputChart from '../../components/ui/ThroughputChart'
 
 interface ApiKey {
   id: string
@@ -131,6 +132,8 @@ export default function DashboardPage() {
         <StatCard label="API Keys" value={totalApiKeys} isLoading={isLoading} />
         <StatCard label="Events Ingested" value={totalEvents.toLocaleString()} isLoading={eventsQuery.isLoading} />
       </div>
+
+      <ThroughputChart />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {!allDone && (

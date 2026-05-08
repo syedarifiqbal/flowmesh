@@ -1,12 +1,25 @@
 import { Injectable } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
+import { Prisma } from '../generated/prisma'
 import { PrismaService } from '../prisma/prisma.service'
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service'
 import { RedisService } from '../redis/redis.service'
 import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { QueryEventsDto } from './dto/query-events.dto'
+import { ThroughputQueryDto } from './dto/throughput-query.dto'
+
+export interface ThroughputBucket {
+  time: string
+  count: number
+}
+
+const RANGE_CONFIG = {
+  '1h':  { interval: "1 hour",   trunc: 'minute', buckets: 60 },
+  '24h': { interval: "24 hours", trunc: 'hour',   buckets: 24 },
+  '7d':  { interval: "7 days",   trunc: 'hour',   buckets: 168 },
+} as const
 
 export interface IngestResult {
   eventId: string
@@ -143,5 +156,32 @@ export class IngestionService {
     workspaceId: string,
   ): Promise<IngestResult[]> {
     return Promise.all(events.map((event) => this.ingest(event, workspaceId)))
+  }
+
+  async getThroughput(
+    workspaceId: string,
+    query: ThroughputQueryDto,
+  ): Promise<{ buckets: ThroughputBucket[] }> {
+    const { interval, trunc } = RANGE_CONFIG[query.range ?? '1h']
+
+    const rows = await this.prisma.$queryRaw<{ time: Date; count: bigint }[]>(
+      Prisma.sql`
+        SELECT
+          date_trunc(${trunc}, received_at) AS time,
+          COUNT(*)::bigint                  AS count
+        FROM ingestion.events
+        WHERE workspace_id = ${workspaceId}
+          AND received_at  >= NOW() - ${Prisma.raw(`INTERVAL '${interval}'`)}
+        GROUP BY time
+        ORDER BY time ASC
+      `,
+    )
+
+    return {
+      buckets: rows.map((r) => ({
+        time: r.time.toISOString(),
+        count: Number(r.count),
+      })),
+    }
   }
 }
