@@ -35,14 +35,14 @@ function formatRelative(iso: string): string {
   return new Date(iso).toLocaleDateString()
 }
 
-function EventRow({ event }: { event: Event | LiveEvent }) {
+function EventRow({ event, isLive }: { event: Event | LiveEvent; isLive?: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const hasProperties = event.properties && Object.keys(event.properties).length > 0
 
   return (
     <>
       <tr
-        className="hover:bg-gray-50 cursor-pointer select-none"
+        className={`hover:bg-gray-50 cursor-pointer select-none${isLive ? ' bg-emerald-50/40' : ''}`}
         onClick={() => setExpanded((e) => !e)}
       >
         <td className="px-4 py-3 w-6">
@@ -162,9 +162,9 @@ export default function EventsPage() {
             onChange={(e) => handleSearch(e.target.value)}
             className="flex-1 text-sm outline-none placeholder-gray-400"
           />
-          {total > 0 && (
+          {(total > 0 || newLiveEvents.length > 0) && (
             <span className="text-xs text-gray-400 whitespace-nowrap">
-              {total.toLocaleString()} event{total !== 1 ? 's' : ''}
+              {(total + newLiveEvents.length).toLocaleString()} event{total + newLiveEvents.length !== 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -202,7 +202,11 @@ export default function EventsPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {displayEvents.map((event) => (
-                  <EventRow key={event.eventId} event={event} />
+                  <EventRow
+                    key={event.eventId}
+                    event={event}
+                    isLive={newLiveEvents.some((e) => e.eventId === event.eventId)}
+                  />
                 ))}
               </tbody>
             </table>
