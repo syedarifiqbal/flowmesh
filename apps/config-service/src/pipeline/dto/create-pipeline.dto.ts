@@ -2,6 +2,7 @@ import {
   IsString, IsBoolean, IsOptional, IsArray, IsObject,
   IsIn, ArrayMinSize, ValidateNested, IsUUID,
 } from 'class-validator'
+
 import { Type } from 'class-transformer'
 
 export class PipelineTriggerDto {
@@ -44,6 +45,11 @@ export class CreatePipelineDto {
   @ValidateNested({ each: true })
   @Type(() => PipelineStepDto)
   steps!: PipelineStepDto[]
+
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  destinations?: string[]
 
   @IsBoolean()
   @IsOptional()

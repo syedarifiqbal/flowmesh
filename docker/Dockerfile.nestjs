@@ -1,46 +1,94 @@
-# Standard multi-stage Dockerfile for all NestJS services.
-# Copy this file to apps/[service]/Dockerfile and it works as-is.
+# Monorepo-aware Dockerfile for all NestJS services in this repo.
 #
-# Stages:
-#   base        — shared node + pnpm setup
-#   development — hot reload with source mounted via docker-compose.dev.yml
-#   builder     — compiles TypeScript to dist/
-#   production  — minimal image with compiled output only
+# Build context MUST be the monorepo root (flowmesh/).
+# Pass SERVICE_NAME and SERVICE_PORT as build args.
+#
+# How it works:
+#   deps stage    — copies every workspace package.json + lockfile, installs all deps.
+#                   This layer is cached unless any package.json or lockfile changes.
+#   builder stage — copies source for the target service + shared packages, builds everything.
+#   production    — minimal Alpine image with only compiled output.
 
-FROM node:20-alpine AS base
+ARG SERVICE_NAME
+ARG SERVICE_PORT=3000
+
+# ── deps: install all workspace dependencies ─────────────────────────────────
+FROM node:20-alpine AS deps
+# OpenSSL is required for Prisma to detect the correct binary target.
+# Without it, Prisma defaults to openssl-1.1.x which is not available in Alpine 3.18+.
+RUN apk add --no-cache openssl
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /app
 
-# ── Development ───────────────────────────────────────────────
-FROM base AS development
-ENV NODE_ENV=development
-COPY package.json pnpm-lock.yaml ./
+# Workspace manifests and lockfile (root level)
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json .npmrc ./
+
+# Every workspace member's package.json — required so pnpm can resolve the
+# full dep graph without copying all source files (keeps this layer cacheable).
+COPY packages/nestjs-common/package.json ./packages/nestjs-common/
+COPY packages/shared-types/package.json  ./packages/shared-types/
+COPY apps/ingestion/package.json      ./apps/ingestion/
+COPY apps/pipeline/package.json       ./apps/pipeline/
+COPY apps/auth/package.json           ./apps/auth/
+COPY apps/config-service/package.json ./apps/config-service/
+COPY apps/api-gateway/package.json    ./apps/api-gateway/
+COPY apps/analytics/package.json      ./apps/analytics/
+
 RUN pnpm install --frozen-lockfile
-COPY . .
-EXPOSE 3000
-CMD ["pnpm", "run", "dev"]
 
-# ── Builder ───────────────────────────────────────────────────
-FROM base AS builder
+# ── builder: compile the target service ──────────────────────────────────────
+FROM deps AS builder
+ARG SERVICE_NAME
 ENV NODE_ENV=production
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod=false
-COPY . .
-RUN pnpm run build
 
-# ── Production ────────────────────────────────────────────────
+# Copy shared packages source
+COPY packages/ ./packages/
+
+# Copy the target service source
+COPY apps/${SERVICE_NAME}/ ./apps/${SERVICE_NAME}/
+
+# Build nestjs-common first — services import from its compiled dist/
+RUN pnpm --filter @flowmesh/nestjs-common build
+
+# Generate Prisma client if the service has one.
+# Silently skips if the service has no prisma:generate script.
+RUN pnpm --filter @flowmesh/${SERVICE_NAME} run prisma:generate 2>/dev/null || true
+
+# Compile TypeScript → dist/
+# nest-cli.json assets config copies Prisma generated files into dist/ automatically.
+RUN pnpm --filter @flowmesh/${SERVICE_NAME} run build
+
+# ── production: minimal runtime image ────────────────────────────────────────
 FROM node:20-alpine AS production
+ARG SERVICE_NAME
+ARG SERVICE_PORT
+RUN apk add --no-cache openssl
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY package.json pnpm-lock.yaml ./
+# All workspace manifests — required so pnpm can resolve peer deps across the full graph.
+# nestjs-common declares @nestjs/common as a peerDependency; without the full workspace
+# manifest set, pnpm cannot wire up the peer correctly for the production install.
+COPY --from=deps /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/package.json /app/.npmrc ./
+COPY --from=deps /app/packages/nestjs-common/package.json ./packages/nestjs-common/
+COPY --from=deps /app/packages/shared-types/package.json  ./packages/shared-types/
+COPY --from=deps /app/apps/ingestion/package.json      ./apps/ingestion/
+COPY --from=deps /app/apps/pipeline/package.json       ./apps/pipeline/
+COPY --from=deps /app/apps/auth/package.json           ./apps/auth/
+COPY --from=deps /app/apps/config-service/package.json ./apps/config-service/
+COPY --from=deps /app/apps/api-gateway/package.json    ./apps/api-gateway/
+COPY --from=deps /app/apps/analytics/package.json      ./apps/analytics/
+
 RUN pnpm install --frozen-lockfile --prod
 
-COPY --from=builder /app/dist ./dist
+# Compiled service output (includes Prisma generated client via nest-cli.json assets)
+COPY --from=builder /app/packages/nestjs-common/dist ./packages/nestjs-common/dist
+COPY --from=builder /app/apps/${SERVICE_NAME}/dist   ./apps/${SERVICE_NAME}/dist
 
 RUN addgroup -S flowmesh && adduser -S flowmesh -G flowmesh
 USER flowmesh
 
-EXPOSE 3000
+WORKDIR /app/apps/${SERVICE_NAME}
+EXPOSE ${SERVICE_PORT}
 CMD ["node", "dist/main.js"]

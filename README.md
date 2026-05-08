@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://golang.org)
+[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://golang.org)
 [![pnpm](https://img.shields.io/badge/pnpm-8.15-F69220?logo=pnpm&logoColor=white)](https://pnpm.io)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/syedarifiqbal/flowmesh/pulls)
 
@@ -49,11 +49,16 @@ Clone the repo, run one command, and have a full production event pipeline in 60
 | Schema validation and correlation ID tracking | ✅ Available |
 | Idempotent event deduplication | ✅ Available |
 | RabbitMQ-backed event queue | ✅ Available |
-| Pipeline builder — filter, transform, enrich, fan-out | 🔧 In development |
-| Destinations: PostgreSQL, Slack, S3, Webhooks, Discord | 🔧 In development |
+| Pipeline executor — filter, transform, enrich, fan-out | ✅ Available |
+| Destination: Webhook (HMAC-SHA256 signed) | ✅ Available |
+| Destination: PostgreSQL | ✅ Available |
+| Destination: Slack, S3, Discord | 🔧 In development |
+| Destination test connection (verify before going live) | ✅ Available |
 | Dead letter queue with one-click replay | 🔧 In development |
-| Real-time event dashboard | 🔧 In development |
-| Visual pipeline builder UI | 🔧 In development |
+| Dashboard UI — pipelines, destinations, events explorer | ✅ Available |
+| Real-time event feed (WebSocket + Redis pub/sub) | 🔧 In development |
+| Visual pipeline builder (React Flow drag-and-drop) | 🔧 In development |
+| Centralised logging (Loki + Grafana) | ✅ Available |
 | Alerting engine | 🔧 In development |
 | Docker Compose deployment | ✅ Available |
 | Kubernetes Helm chart | 🔧 In development |
@@ -100,6 +105,8 @@ FlowMesh is a polyglot microservices platform. Each service has a single, clearl
 | RabbitMQ | Event pipeline queue + dead letter queue |
 | Redis (ephemeral) | Rate limit counters, pipeline cache, pub/sub for live dashboard |
 | Redis (persistent, AOF) | Token blacklist, idempotency keys |
+| Loki + Promtail | Centralised log aggregation across all services |
+| Grafana | Log exploration and observability dashboards |
 
 ### Distributed Systems Patterns
 
@@ -135,16 +142,21 @@ docker compose up
 
 That's it. All services, databases, and message queues start together.
 
-- Ingestion API: `http://localhost:3001`
-- Health check: `http://localhost:3001/health`
-- RabbitMQ management: `http://localhost:15672` (flowmesh / flowmesh_dev)
+| URL | What |
+|---|---|
+| `http://localhost:80` | Dashboard UI — pipelines, destinations, events |
+| `http://localhost:3000` | API Gateway (direct access) |
+| `http://localhost:3200` | Grafana — centralised logs from all services (admin / admin) |
+| `http://localhost:15672` | RabbitMQ management (flowmesh / flowmesh_dev) |
 
 ### Send your first event
 
+Get an API key from the dashboard at `http://localhost:80`, then:
+
 ```bash
-curl -X POST http://localhost:3001/events \
+curl -X POST http://localhost:3000/ingest/events \
   -H "Content-Type: application/json" \
-  -H "x-workspace-id: your-workspace-id" \
+  -H "x-api-key: your-api-key" \
   -d '{
     "event": "user.signed_up",
     "correlationId": "550e8400-e29b-41d4-a716-446655440000",
@@ -170,9 +182,9 @@ Response:
 ### Send a batch
 
 ```bash
-curl -X POST http://localhost:3001/events/batch \
+curl -X POST http://localhost:3000/ingest/events/batch \
   -H "Content-Type: application/json" \
-  -H "x-workspace-id: your-workspace-id" \
+  -H "x-api-key: your-api-key" \
   -d '{
     "events": [
       {
@@ -214,6 +226,26 @@ Every event sent to FlowMesh follows this structure:
 | `properties` | object | optional | Arbitrary key-value payload |
 
 `userId` or `anonymousId` must be present — at least one is required.
+
+---
+
+## Observability
+
+Every service ships structured JSON logs. Promtail collects them and forwards to Loki. Open Grafana at `http://localhost:3200` (admin / admin) to query logs from all services in one place.
+
+**Trace an event end-to-end by correlationId:**
+
+```logql
+{compose_service=~"ingestion|api-gateway|pipeline|delivery|config-service|auth"} |= "your-correlation-id"
+```
+
+Every log line from ingestion through pipeline through delivery carries the same `correlationId`, so a single query shows the full journey of any event.
+
+**Filter by service:**
+
+```logql
+{compose_service="delivery"} | json | level="ERROR"
+```
 
 ---
 
@@ -304,17 +336,19 @@ Each service is configured entirely via environment variables. Copy `.env.exampl
 flowmesh/
 ├── apps/
 │   ├── ingestion/          # Event ingestion API (NestJS)
-│   ├── pipeline/           # Pipeline executor (NestJS)        [in development]
-│   ├── delivery/           # Destination delivery (Go)         [in development]
-│   ├── auth/               # Auth and API keys (NestJS)        [in development]
-│   ├── api-gateway/        # Rate limiting + routing (NestJS)  [in development]
-│   ├── analytics/          # Metrics aggregation (NestJS)      [in development]
-│   ├── alert/              # Alerting engine (NestJS)          [in development]
-│   ├── config-service/     # Pipeline config store (NestJS)    [in development]
-│   └── dashboard/          # React frontend                    [in development]
+│   ├── pipeline/           # Pipeline executor — filter, transform, enrich, fan-out (NestJS)
+│   ├── delivery/           # Destination delivery — webhook, postgres, circuit breaker (Go)
+│   ├── auth/               # JWT, API keys, workspaces (NestJS)
+│   ├── api-gateway/        # Rate limiting, auth, routing (NestJS)
+│   ├── config-service/     # Pipeline and destination config store (NestJS)
+│   ├── dashboard/          # React frontend — pipelines, destinations, events explorer
+│   ├── analytics/          # Metrics aggregation and WebSocket feed (NestJS) [in development]
+│   └── alert/              # Alerting engine (NestJS)                         [in development]
 ├── packages/
-│   └── shared-types/       # TypeScript types shared across services
+│   ├── shared-types/       # TypeScript types shared across services
+│   └── nestjs-common/      # Shared NestJS modules (health, logging, RabbitMQ, cache keys)
 ├── docker/
+│   ├── docker-compose.yml
 │   └── docker-compose.dev.yml
 ├── docs/
 │   └── adr/                # Architecture Decision Records
@@ -389,15 +423,16 @@ The self-hosted open source version has no limitations. FlowMesh Cloud is for te
 
 ## Roadmap
 
-### Phase 1 — Core pipeline (current)
+### Phase 1 — Core pipeline ✅
 Ingestion → RabbitMQ → Pipeline → Go Delivery → destinations → DLQ.
 All distributed systems patterns: rate limiting, idempotency, circuit breaker, backoff retry, dead letter queue.
+Webhook and PostgreSQL destinations working. Centralised logging with Loki + Grafana.
 
-### Phase 2 — Dashboard
-Real-time event feed (WebSocket + Redis pub/sub), visual pipeline builder (React Flow), events explorer, DLQ replay UI.
+### Phase 2 — Dashboard (current)
+Dashboard UI live with pipelines, destinations, and events explorer. Real-time event feed (WebSocket + Redis pub/sub) and visual pipeline builder (React Flow) in progress.
 
 ### Phase 3 — Platform features
-Auth, API keys, alerting engine, complete destination library.
+Alerting engine, complete destination library (Slack, S3, Discord), DLQ replay UI.
 
 ### Phase 4 — Kubernetes
 Helm chart for teams self-hosting at scale. Independent scaling per service.

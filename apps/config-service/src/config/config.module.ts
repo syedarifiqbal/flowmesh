@@ -28,6 +28,7 @@ const postgresUrlWithSchema = (expectedSchema: string) =>
         DATABASE_URL:           postgresUrlWithSchema('config'),
         REDIS_EPHEMERAL_URL:    Joi.string().required(),
         CONFIG_ENCRYPTION_KEY:  Joi.string().length(64).required(),
+        DELIVERY_SERVICE_URL:   Joi.string().required(),
       }),
       validationOptions: { abortEarly: false },
     }),

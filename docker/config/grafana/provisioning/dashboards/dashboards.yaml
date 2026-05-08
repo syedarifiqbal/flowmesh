@@ -1,0 +1,13 @@
+# Tells Grafana where to find dashboard JSON files for provisioning.
+# Any .json file placed in /etc/grafana/provisioning/dashboards/ is auto-imported.
+
+apiVersion: 1
+
+providers:
+  - name: FlowMesh
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

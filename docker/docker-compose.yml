@@ -26,19 +26,20 @@ services:
       - flowmesh
 
   pgbouncer:
-    image: bitnami/pgbouncer:latest
+    image: edoburu/pgbouncer:latest
     container_name: flowmesh-pgbouncer
     restart: unless-stopped
     environment:
-      POSTGRESQL_HOST: postgres
-      POSTGRESQL_PORT: 5432
-      POSTGRESQL_DATABASE: flowmesh
-      POSTGRESQL_USERNAME: flowmesh
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
-      PGBOUNCER_DATABASE: flowmesh
-      PGBOUNCER_POOL_MODE: transaction
-      PGBOUNCER_MAX_CLIENT_CONN: 200
-      PGBOUNCER_DEFAULT_POOL_SIZE: 20
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: flowmesh
+      DB_USER: flowmesh
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      DEFAULT_POOL_SIZE: 20
+      AUTH_TYPE: plain
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits,search_path
     ports:
       - "5432:5432"
     depends_on:
@@ -115,8 +116,11 @@ services:
 
   api-gateway:
     build:
-      context: ../apps/api-gateway
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: api-gateway
+        SERVICE_PORT: 3000
     container_name: flowmesh-api-gateway
     restart: unless-stopped
     env_file: ../.env
@@ -125,8 +129,12 @@ services:
       INGESTION_SERVICE_URL: http://ingestion:3001
       CONFIG_SERVICE_URL: http://config-service:3005
       AUTH_SERVICE_URL: http://auth:3004
+      PIPELINE_SERVICE_URL: http://pipeline:3002
+      ANALYTICS_SERVICE_URL: http://analytics:3006
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
+    ports:
+      - "3000:3000"
     depends_on:
       redis-ephemeral:
         condition: service_healthy
@@ -137,14 +145,17 @@ services:
 
   ingestion:
     build:
-      context: ../apps/ingestion
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: ingestion
+        SERVICE_PORT: 3001
     container_name: flowmesh-ingestion
     restart: unless-stopped
     env_file: ../.env
     environment:
       PORT: 3001
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=ingestion
       RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
@@ -160,21 +171,31 @@ services:
 
   pipeline:
     build:
-      context: ../apps/pipeline
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: pipeline
+        SERVICE_PORT: 3002
     container_name: flowmesh-pipeline
     restart: unless-stopped
     env_file: ../.env
     environment:
       PORT: 3002
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=pipeline
       RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+      REDIS_PERSISTENT_URL: redis://redis-persistent:6379
       CONFIG_SERVICE_URL: http://config-service:3005
     depends_on:
       rabbitmq:
         condition: service_healthy
       pgbouncer:
+        condition: service_started
+      redis-ephemeral:
+        condition: service_healthy
+      redis-persistent:
+        condition: service_healthy
+      config-service:
         condition: service_started
     networks:
       - flowmesh
@@ -188,28 +209,32 @@ services:
     env_file: ../.env
     environment:
       PORT: 3003
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
       RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+      CONFIG_SERVICE_URL: http://config-service:3005
     depends_on:
       rabbitmq:
         condition: service_healthy
-      pgbouncer:
+      config-service:
         condition: service_started
     networks:
       - flowmesh
 
   auth:
     build:
-      context: ../apps/auth
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: auth
+        SERVICE_PORT: 3004
     container_name: flowmesh-auth
     restart: unless-stopped
     env_file: ../.env
     environment:
       PORT: 3004
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=auth
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
     depends_on:
       pgbouncer:
         condition: service_started
@@ -220,15 +245,19 @@ services:
 
   config-service:
     build:
-      context: ../apps/config-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: config-service
+        SERVICE_PORT: 3005
     container_name: flowmesh-config
     restart: unless-stopped
     env_file: ../.env
     environment:
       PORT: 3005
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=config
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+      DELIVERY_SERVICE_URL: http://delivery:3003
     depends_on:
       pgbouncer:
         condition: service_started
@@ -239,40 +268,91 @@ services:
 
   analytics:
     build:
-      context: ../apps/analytics
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: analytics
+        SERVICE_PORT: 3006
     container_name: flowmesh-analytics
     restart: unless-stopped
     env_file: ../.env
     environment:
       PORT: 3006
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
-      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+    ports:
+      - "3006:3006"
     depends_on:
-      rabbitmq:
+      redis-ephemeral:
         condition: service_healthy
-      pgbouncer:
-        condition: service_started
     networks:
       - flowmesh
 
-  alert:
-    build:
-      context: ../apps/alert
-      dockerfile: Dockerfile
-    container_name: flowmesh-alert
+  # alert:
+  #   build:
+  #     context: ../apps/alert
+  #     dockerfile: Dockerfile
+  #   container_name: flowmesh-alert
+  #   environment:
+  #     PORT: 3007
+  #     DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
+  #     RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+  #   networks:
+  #     - flowmesh
+
+  # ─── Observability ───────────────────────────────────────────
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: flowmesh-loki
     restart: unless-stopped
-    env_file: ../.env
-    environment:
-      PORT: 3007
-      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
-      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+    volumes:
+      - ./config/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/loki-config.yaml
+    ports:
+      - "3100:3100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flowmesh
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: flowmesh-promtail
+    restart: unless-stopped
+    volumes:
+      - ./config/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      # Promtail needs the Docker socket to discover containers and read their logs.
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/promtail-config.yaml
     depends_on:
-      rabbitmq:
+      loki:
         condition: service_healthy
-      pgbouncer:
-        condition: service_started
+    networks:
+      - flowmesh
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: flowmesh-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # Disable telemetry — this is a self-hosted instance.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3200:3000"
+    depends_on:
+      loki:
+        condition: service_healthy
     networks:
       - flowmesh
 
@@ -298,6 +378,8 @@ volumes:
   postgres_data:
   rabbitmq_data:
   redis_persistent_data:
+  loki_data:
+  grafana_data:
 
 # ─── Networks ───────────────────────────────────────────────────
 

@@ -8,3 +8,4 @@ export { RabbitMqConnection, RABBITMQ_OPTIONS } from './rabbitmq/rabbitmq-connec
 export type { RabbitMqOptions } from './rabbitmq/rabbitmq-connection.service'
 export { RabbitMqModule } from './rabbitmq/rabbitmq.module'
 export type { RabbitMqAsyncOptions } from './rabbitmq/rabbitmq.module'
+export { WorkspaceId } from './pipes/workspace-id.pipe'

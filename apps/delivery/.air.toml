@@ -1,0 +1,23 @@
+root = "."
+tmp_dir = "/tmp/air"
+
+[build]
+  cmd = "go build -o /tmp/air/delivery ."
+  bin = "/tmp/air/delivery"
+  include_ext = ["go"]
+  exclude_dir = ["vendor"]
+  delay = 500
+  kill_delay = "500ms"
+  send_interrupt = true
+
+[log]
+  time = false
+
+[color]
+  main = "magenta"
+  watcher = "cyan"
+  build = "yellow"
+  runner = "green"
+
+[misc]
+  clean_on_exit = true

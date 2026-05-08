@@ -15,6 +15,7 @@ module.exports = {
         'alert',
         'config',
         'gateway',
+        'dashboard',
         // shared / infra
         'shared-common',
         'shared-types',

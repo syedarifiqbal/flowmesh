@@ -41,6 +41,7 @@ export default defineConfig({
         '**/shared-types/**',
         '**/generated/**',
         '**/coverage/**',
+        'apps/dashboard/**',
       ],
     },
 

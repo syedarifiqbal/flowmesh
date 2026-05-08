@@ -1,0 +1,53 @@
+# Loki single-process config — suitable for self-hosted single-server deployments.
+# All components (ingester, querier, distributor, compactor) run in one process.
+# Logs are stored on the local filesystem inside the loki_data Docker volume.
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+
+# Single-process mode: all components share an in-memory ring.
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+# Schema v13 with TSDB is the current recommended store for Loki 3.x.
+# The `from` date must be in the past — Loki rejects future dates.
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+# Keep 7 days of logs. Compactor runs retention enforcement.
+limits_config:
+  retention_period: 168h
+  # Allow slightly larger log lines (pino JSON with properties can be verbose).
+  max_line_size: 65536
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+
+# Small in-memory cache to speed up repeated range queries in Grafana.
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 50
