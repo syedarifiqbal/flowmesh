@@ -130,6 +130,7 @@ services:
       CONFIG_SERVICE_URL: http://config-service:3005
       AUTH_SERVICE_URL: http://auth:3004
       PIPELINE_SERVICE_URL: http://pipeline:3002
+      ANALYTICS_SERVICE_URL: http://analytics:3006
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
     ports:
@@ -265,22 +266,27 @@ services:
     networks:
       - flowmesh
 
-  # analytics and alert are Phase 3 — not yet implemented.
-  # Uncomment when their Dockerfiles exist.
-  #
-  # analytics:
-  #   build:
-  #     context: ../apps/analytics
-  #     dockerfile: Dockerfile
-  #   container_name: flowmesh-analytics
-  #   environment:
-  #     PORT: 3006
-  #     DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
-  #     RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
-  #     REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
-  #   networks:
-  #     - flowmesh
-  #
+  analytics:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: analytics
+        SERVICE_PORT: 3006
+    container_name: flowmesh-analytics
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      PORT: 3006
+      REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+    ports:
+      - "3006:3006"
+    depends_on:
+      redis-ephemeral:
+        condition: service_healthy
+    networks:
+      - flowmesh
+
   # alert:
   #   build:
   #     context: ../apps/alert

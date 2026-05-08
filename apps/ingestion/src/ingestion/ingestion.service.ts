@@ -4,6 +4,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino'
 import { PrismaService } from '../prisma/prisma.service'
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service'
 import { RedisService } from '../redis/redis.service'
+import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { QueryEventsDto } from './dto/query-events.dto'
 
@@ -18,6 +19,7 @@ export class IngestionService {
     private readonly prisma: PrismaService,
     private readonly rabbitmq: RabbitMQService,
     private readonly redis: RedisService,
+    private readonly pubsub: RedisPubSubService,
     @InjectPinoLogger(IngestionService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -116,6 +118,20 @@ export class IngestionService {
 
     // Mark as processed after successful publish
     await this.redis.markEventProcessed(eventId)
+
+    // Publish to live event feed (fire-and-forget — never block ingestion for this)
+    this.pubsub.publishEvent({
+      id: eventId,
+      eventId,
+      eventName: dto.event,
+      source: dto.source,
+      userId: dto.userId ?? null,
+      anonymousId: dto.anonymousId ?? null,
+      correlationId: dto.correlationId,
+      properties: dto.properties ?? {},
+      receivedAt: timestamp,
+      workspaceId,
+    }).catch((err) => this.logger.warn({ err }, 'live event publish failed — non-critical'))
 
     this.logger.info({ eventId, correlationId: dto.correlationId, workspaceId, event: dto.event }, 'event accepted')
 

@@ -32,7 +32,7 @@ grafana-open:
 # ─── Full stack ───────────────────────────────────────────────────────────────
 
 up:
-	$(COMPOSE) up -d
+	$(COMPOSE) up --build -d
 
 down:
 	$(COMPOSE) down
@@ -128,6 +128,11 @@ auth-generate:
 gateway-dev:
 	pnpm --filter @flowmesh/api-gateway dev
 
+# ─── Analytics service ───────────────────────────────────────────────────────
+
+analytics-dev:
+	pnpm --filter @flowmesh/analytics dev
+
 # ─── Dashboard ───────────────────────────────────────────────────────────────
 
 dashboard-dev:
@@ -179,5 +184,5 @@ env-setup:
         delivery-dev delivery-build delivery-test delivery-test-race \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         auth-dev auth-migrate-create auth-migrate auth-generate \
-        gateway-dev dashboard-dev \
+        gateway-dev analytics-dev dashboard-dev \
         test test-integration test-coverage test-watch install gen-jwt-secret env-setup
