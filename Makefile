@@ -32,7 +32,7 @@ grafana-open:
 # ─── Full stack ───────────────────────────────────────────────────────────────
 
 up:
-	$(COMPOSE) up -d
+	$(COMPOSE) up --build -d
 
 down:
 	$(COMPOSE) down

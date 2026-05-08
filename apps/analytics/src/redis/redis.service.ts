@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common'
+import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import Redis from 'ioredis'
 
@@ -9,14 +9,12 @@ const BASE_DELAY_MS = 500
 const MAX_DELAY_MS = 30000
 
 @Injectable()
-export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private subscriber!: Redis
+export class RedisService implements OnModuleDestroy {
+  private readonly subscriber: Redis
   private readonly logger = new Logger(RedisService.name)
 
-  constructor(private readonly config: ConfigService) {}
-
-  onModuleInit() {
-    const url = this.config.get<string>('REDIS_EPHEMERAL_URL')!
+  constructor(config: ConfigService) {
+    const url = config.get<string>('REDIS_EPHEMERAL_URL')!
 
     this.subscriber = new Redis(url, {
       maxRetriesPerRequest: null,
