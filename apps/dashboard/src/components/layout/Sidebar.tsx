@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Zap, GitBranch, Share2, Key, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Zap, GitBranch, Share2, Key, Settings, LogOut, Inbox } from 'lucide-react'
 import { clearTokens } from '../../lib/auth'
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/pipelines', label: 'Pipelines', icon: GitBranch },
   { to: '/destinations', label: 'Destinations', icon: Share2 },
   { to: '/api-keys', label: 'API Keys', icon: Key },
+  { to: '/dlq', label: 'Dead Letters', icon: Inbox },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

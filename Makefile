@@ -82,6 +82,10 @@ delivery-dev:
 delivery-build:
 	cd apps/delivery && go build -o dist/delivery .
 
+delivery-migrate:
+	docker exec -i flowmesh-postgres psql -U flowmesh -d flowmesh < apps/delivery/migrations/001_create_dead_letter_events.sql
+	docker exec -i flowmesh-postgres psql -U flowmesh -d flowmesh < apps/delivery/migrations/002_create_delivery_attempts.sql
+
 delivery-test:
 	cd apps/delivery && go test ./... -cover
 
@@ -181,7 +185,7 @@ env-setup:
 .PHONY: infra-up infra-down infra-logs infra-psql obs-up obs-down obs-logs grafana-open up down down-v logs \
         ingestion-dev ingestion-migrate-create ingestion-migrate ingestion-generate \
         pipeline-dev pipeline-migrate-create pipeline-migrate pipeline-generate \
-        delivery-dev delivery-build delivery-test delivery-test-race \
+        delivery-dev delivery-build delivery-migrate delivery-test delivery-test-race \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         auth-dev auth-migrate-create auth-migrate auth-generate \
         gateway-dev analytics-dev dashboard-dev \

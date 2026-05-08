@@ -13,6 +13,7 @@ import (
 
 	"github.com/flowmesh/delivery/internal/configclient"
 	"github.com/flowmesh/delivery/internal/destination"
+	"github.com/flowmesh/delivery/internal/store"
 )
 
 const (
@@ -32,6 +33,7 @@ type fanoutMeta struct {
 	ExecutionID   string `json:"executionId"`
 	DestinationID string `json:"destinationId"`
 	WorkspaceID   string `json:"workspaceId"`
+	DLQEventID    string `json:"dlqEventId,omitempty"`
 }
 
 type fanoutMessage struct {
@@ -46,20 +48,35 @@ type acker interface {
 	Nack(multiple, requeue bool) error
 }
 
-type Consumer struct {
-	conn         *amqp.Connection
-	configClient *configclient.Client
-	breakers     map[string]*gobreaker.CircuitBreaker
-	logger       *slog.Logger
-	shuttingDown bool
+// DLQWriter is satisfied by *store.DLQStore.
+type DLQWriter interface {
+	Write(ctx context.Context, e store.DLQEvent) error
+	MarkResolved(ctx context.Context, id string) error
 }
 
-func New(conn *amqp.Connection, cfgClient *configclient.Client, logger *slog.Logger) *Consumer {
+// AttemptsWriter is satisfied by *store.AttemptsStore.
+type AttemptsWriter interface {
+	Write(ctx context.Context, a store.DeliveryAttempt) error
+}
+
+type Consumer struct {
+	conn           *amqp.Connection
+	configClient   *configclient.Client
+	dlqWriter      DLQWriter
+	attemptsWriter AttemptsWriter
+	breakers       map[string]*gobreaker.CircuitBreaker
+	logger         *slog.Logger
+	shuttingDown   bool
+}
+
+func New(conn *amqp.Connection, cfgClient *configclient.Client, dlqWriter DLQWriter, attemptsWriter AttemptsWriter, logger *slog.Logger) *Consumer {
 	return &Consumer{
-		conn:         conn,
-		configClient: cfgClient,
-		breakers:     make(map[string]*gobreaker.CircuitBreaker),
-		logger:       logger,
+		conn:           conn,
+		configClient:   cfgClient,
+		dlqWriter:      dlqWriter,
+		attemptsWriter: attemptsWriter,
+		breakers:       make(map[string]*gobreaker.CircuitBreaker),
+		logger:         logger,
 	}
 }
 
@@ -132,17 +149,33 @@ func (c *Consumer) handleMessageInternal(ctx context.Context, a acker, body []by
 
 	cb := c.breakerFor(fm.Meta.DestinationID, dest.Type)
 
+	eventID, _ := fm.Event["eventId"].(string)
+	eventName, _ := fm.Event["eventName"].(string)
+	src, _ := fm.Event["source"].(string)
+
 	var deliverErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
+		start := time.Now()
 		_, deliverErr = cb.Execute(func() (any, error) {
 			return nil, destination.Dispatch(ctx, dest.Type, dest.Config, fm.Event)
 		})
+		durationMs := time.Since(start).Milliseconds()
 
 		if deliverErr == nil {
 			log.Info("event delivered", "type", dest.Type, "attempt", attempt)
+			c.writeAttempt(ctx, fm, dest.Type, eventID, correlationId, attempt, durationMs, "")
+
+			if c.dlqWriter != nil && fm.Meta.DLQEventID != "" {
+				if err := c.dlqWriter.MarkResolved(ctx, fm.Meta.DLQEventID); err != nil {
+					log.Warn("failed to mark DLQ event resolved", "err", err, "dlqEventId", fm.Meta.DLQEventID)
+				}
+			}
+
 			a.Ack(false) //nolint:errcheck
 			return
 		}
+
+		c.writeAttempt(ctx, fm, dest.Type, eventID, correlationId, attempt, durationMs, deliverErr.Error())
 
 		if attempt < maxRetries {
 			delay := time.Duration(math.Min(float64(baseDelayMs)*math.Pow(2, float64(attempt-1)), float64(maxDelayMs))) * time.Millisecond
@@ -157,7 +190,52 @@ func (c *Consumer) handleMessageInternal(ctx context.Context, a acker, body []by
 	}
 
 	log.Error("max retries exceeded — routing to DLQ", "err", deliverErr, "type", dest.Type)
+
+	// Store the full message body so replay re-publishes a valid fanoutMessage.
+	fullPayload := make([]byte, len(body))
+	copy(fullPayload, body)
+
+	if c.dlqWriter != nil {
+		if err := c.dlqWriter.Write(ctx, store.DLQEvent{
+			WorkspaceID:     fm.Meta.WorkspaceID,
+			EventID:         eventID,
+			CorrelationID:   correlationId,
+			EventName:       eventName,
+			Source:          src,
+			DestinationID:   fm.Meta.DestinationID,
+			DestinationType: dest.Type,
+			Payload:         json.RawMessage(fullPayload),
+			ErrorReason:     deliverErr.Error(),
+			Attempts:        maxRetries,
+		}); err != nil {
+			log.Error("failed to persist DLQ event", "err", err)
+		}
+	}
+
 	a.Nack(false, false) //nolint:errcheck
+}
+
+func (c *Consumer) writeAttempt(ctx context.Context, fm fanoutMessage, destType, eventID, correlationID string, attempt int, durationMs int64, errMsg string) {
+	if c.attemptsWriter == nil {
+		return
+	}
+	outcome := "success"
+	if errMsg != "" {
+		outcome = "failure"
+	}
+	if err := c.attemptsWriter.Write(ctx, store.DeliveryAttempt{
+		WorkspaceID:     fm.Meta.WorkspaceID,
+		EventID:         eventID,
+		CorrelationID:   correlationID,
+		DestinationID:   fm.Meta.DestinationID,
+		DestinationType: destType,
+		Attempt:         attempt,
+		Outcome:         outcome,
+		Error:           errMsg,
+		DurationMs:      durationMs,
+	}); err != nil {
+		c.logger.Warn("failed to persist delivery attempt", "err", err)
+	}
 }
 
 func (c *Consumer) setupChannel() (*amqp.Channel, error) {
