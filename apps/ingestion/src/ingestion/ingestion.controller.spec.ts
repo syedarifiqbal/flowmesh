@@ -12,6 +12,7 @@ const mockService = {
 }
 
 const WORKSPACE_ID = randomUUID()
+const HEADER_CORRELATION_ID = randomUUID()
 
 const makeEvent = () => ({
   event: 'order.created',
@@ -40,7 +41,7 @@ describe('IngestionController', () => {
       const eventId = randomUUID()
       mockService.ingest.mockResolvedValue({ eventId, status: 'accepted' })
 
-      const result = await controller.ingest(WORKSPACE_ID, makeEvent() as any)
+      const result = await controller.ingest(WORKSPACE_ID, HEADER_CORRELATION_ID, makeEvent() as any)
       expect(result).toEqual({ eventId, status: 'accepted' })
     })
 
@@ -48,8 +49,21 @@ describe('IngestionController', () => {
       const eventId = randomUUID()
       mockService.ingest.mockResolvedValue({ eventId, status: 'duplicate' })
 
-      const result = await controller.ingest(WORKSPACE_ID, makeEvent() as any)
+      const result = await controller.ingest(WORKSPACE_ID, HEADER_CORRELATION_ID, makeEvent() as any)
       expect(result.status).toBe('duplicate')
+    })
+
+    it('uses header correlationId when body does not include one', async () => {
+      const eventId = randomUUID()
+      mockService.ingest.mockResolvedValue({ eventId, status: 'accepted' })
+
+      const eventWithoutCorrelationId = { event: 'order.created', source: 'order-service', version: '1.0', userId: 'u1' }
+      await controller.ingest(WORKSPACE_ID, HEADER_CORRELATION_ID, eventWithoutCorrelationId as any)
+
+      expect(mockService.ingest).toHaveBeenCalledWith(
+        expect.objectContaining({ correlationId: HEADER_CORRELATION_ID }),
+        WORKSPACE_ID,
+      )
     })
   })
 
@@ -63,6 +77,7 @@ describe('IngestionController', () => {
 
       const result = await controller.ingestBatch(
         WORKSPACE_ID,
+        HEADER_CORRELATION_ID,
         { events: [makeEvent(), makeEvent(), makeEvent()] as any },
       )
 

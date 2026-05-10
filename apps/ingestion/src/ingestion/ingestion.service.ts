@@ -76,7 +76,7 @@ export class IngestionService {
     return { events, total, limit, offset }
   }
 
-  async ingest(dto: IngestEventDto, workspaceId: string): Promise<IngestResult> {
+  async ingest(dto: IngestEventDto & { correlationId: string }, workspaceId: string): Promise<IngestResult> {
     const eventId = dto.eventId ?? randomUUID()
     const timestamp = dto.timestamp ?? new Date().toISOString()
 
@@ -152,7 +152,7 @@ export class IngestionService {
   }
 
   async ingestBatch(
-    events: IngestEventDto[],
+    events: (IngestEventDto & { correlationId: string })[],
     workspaceId: string,
   ): Promise<IngestResult[]> {
     return Promise.all(events.map((event) => this.ingest(event, workspaceId)))
