@@ -101,7 +101,7 @@ export class IngestionService {
         sessionId: dto.sessionId ?? null,
         properties: (dto.properties ?? {}) as object,
         context: (dto.context ?? {}) as object,
-        receivedAt: new Date(timestamp),
+        receivedAt: new Date(),
       },
     })
 

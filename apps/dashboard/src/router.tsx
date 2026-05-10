@@ -11,6 +11,7 @@ import ExecutionDetailPage from './pages/executions/ExecutionDetailPage'
 import DestinationsPage from './pages/destinations/DestinationsPage'
 import ApiKeysPage from './pages/api-keys/ApiKeysPage'
 import SettingsPage from './pages/settings/SettingsPage'
+import DLQPage from './pages/dlq/DLQPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -40,6 +41,7 @@ export default function AppRouter() {
         <Route path="/executions/:id" element={<ExecutionDetailPage />} />
         <Route path="/destinations" element={<DestinationsPage />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
+        <Route path="/dlq" element={<DLQPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />

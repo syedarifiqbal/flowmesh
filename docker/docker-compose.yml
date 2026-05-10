@@ -131,6 +131,7 @@ services:
       AUTH_SERVICE_URL: http://auth:3004
       PIPELINE_SERVICE_URL: http://pipeline:3002
       ANALYTICS_SERVICE_URL: http://analytics:3006
+      DELIVERY_SERVICE_URL: http://delivery:3003
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
     ports:
@@ -211,11 +212,14 @@ services:
       PORT: 3003
       RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
       CONFIG_SERVICE_URL: http://config-service:3005
+      DELIVERY_DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@postgres:5432/flowmesh
     depends_on:
       rabbitmq:
         condition: service_healthy
       config-service:
         condition: service_started
+      postgres:
+        condition: service_healthy
     networks:
       - flowmesh
 

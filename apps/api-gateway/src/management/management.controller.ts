@@ -50,4 +50,10 @@ export class ManagementController {
     const base = this.config.get<string>('PIPELINE_SERVICE_URL')!
     await this.proxy.forward(req, res, `${base}${req.url}`)
   }
+
+  @All('dlq*')
+  async dlq(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const base = this.config.get<string>('DELIVERY_SERVICE_URL')!
+    await this.proxy.forward(req, res, `${base}${req.url}`)
+  }
 }
