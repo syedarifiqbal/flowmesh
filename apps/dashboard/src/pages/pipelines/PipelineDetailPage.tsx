@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, GitBranch, Share2, X, Plus, Activity, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { ArrowLeft, GitBranch, Share2, X, Plus, Activity, CheckCircle, XCircle, Clock, Pencil } from 'lucide-react'
 import api from '../../lib/api'
 import { useToastContext } from '../../components/ui/ToastProvider'
 import AddDestinationModal from './AddDestinationModal'
@@ -195,6 +195,13 @@ export default function PipelineDetailPage() {
             >
               {pipeline.enabled ? 'Active' : 'Inactive'}
             </span>
+            <Link
+              to={`/pipelines/${pipeline.id}/builder`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 border border-indigo-300 rounded-lg hover:bg-indigo-50 transition-colors ml-auto"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Edit pipeline
+            </Link>
           </div>
 
           {pipeline.description && (

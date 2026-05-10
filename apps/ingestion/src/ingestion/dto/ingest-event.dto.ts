@@ -18,7 +18,8 @@ export class IngestEventDto {
   event!: string
 
   @IsUUID('4')
-  correlationId!: string
+  @IsOptional()
+  correlationId?: string
 
   @IsUUID('4')
   @IsOptional()

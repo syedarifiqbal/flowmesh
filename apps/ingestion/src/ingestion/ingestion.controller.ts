@@ -1,5 +1,5 @@
-import { Controller, Post, Get, Body, HttpCode, Query } from '@nestjs/common'
-import { WorkspaceId } from '@flowmesh/nestjs-common'
+import { Controller, Post, Get, Body, HttpCode, Query, Headers } from '@nestjs/common'
+import { WorkspaceId, CORRELATION_ID_HEADER } from '@flowmesh/nestjs-common'
 import { IngestionService } from './ingestion.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { IngestBatchDto } from './dto/ingest-batch.dto'
@@ -30,18 +30,27 @@ export class IngestionController {
   @HttpCode(202)
   async ingest(
     @WorkspaceId() workspaceId: string,
+    @Headers(CORRELATION_ID_HEADER) headerCorrelationId: string,
     @Body() dto: IngestEventDto,
   ) {
-    return this.ingestionService.ingest(dto, workspaceId)
+    // Use body correlationId if provided, otherwise fall back to the
+    // x-correlation-id header that the API gateway always sets.
+    const correlationId = dto.correlationId ?? headerCorrelationId
+    return this.ingestionService.ingest({ ...dto, correlationId }, workspaceId)
   }
 
   @Post('batch')
   @HttpCode(202)
   async ingestBatch(
     @WorkspaceId() workspaceId: string,
+    @Headers(CORRELATION_ID_HEADER) headerCorrelationId: string,
     @Body() dto: IngestBatchDto,
   ) {
-    const results = await this.ingestionService.ingestBatch(dto.events, workspaceId)
+    const events = dto.events.map((e) => ({
+      ...e,
+      correlationId: e.correlationId ?? headerCorrelationId,
+    }))
+    const results = await this.ingestionService.ingestBatch(events, workspaceId)
     return {
       accepted: results.filter((r) => r.status === 'accepted').length,
       duplicates: results.filter((r) => r.status === 'duplicate').length,

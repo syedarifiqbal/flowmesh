@@ -2,8 +2,6 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import CircuitBreaker from 'opossum'
 import { Pipeline } from '@flowmesh/shared-types'
-import { CacheKeyFactory } from '@flowmesh/nestjs-common'
-import { RedisService, PIPELINE_CONFIG_CACHE_TTL } from '../redis/redis.service'
 
 const CIRCUIT_BREAKER_OPTIONS = {
   timeout: 5000,
@@ -11,16 +9,17 @@ const CIRCUIT_BREAKER_OPTIONS = {
   resetTimeout: 30000,
 }
 
+// No local Redis cache here — the config-service already caches pipeline
+// definitions in Redis 1. A second cache layer here caused stale reads after
+// pipeline updates because only the config-service's cache was invalidated on
+// writes, not this one. Rely on the config-service circuit breaker + its own
+// cache-aside layer instead.
 @Injectable()
 export class ConfigClientService implements OnModuleInit {
   private readonly logger = new Logger(ConfigClientService.name)
   private circuitBreaker!: CircuitBreaker<[string], Pipeline[]>
 
-  constructor(
-    private readonly config: ConfigService,
-    private readonly redis: RedisService,
-    private readonly cacheKey: CacheKeyFactory,
-  ) {}
+  constructor(private readonly config: ConfigService) {}
 
   onModuleInit() {
     this.circuitBreaker = new CircuitBreaker(
@@ -40,21 +39,7 @@ export class ConfigClientService implements OnModuleInit {
   }
 
   async getPipelinesForWorkspace(workspaceId: string): Promise<Pipeline[]> {
-    const key = this.cacheKey.list(workspaceId)
-
-    const cached = await this.redis.get(key)
-    if (cached) {
-      return JSON.parse(cached) as Pipeline[]
-    }
-
-    const pipelines = await this.circuitBreaker.fire(workspaceId)
-    await this.redis.set(key, JSON.stringify(pipelines), PIPELINE_CONFIG_CACHE_TTL)
-
-    return pipelines
-  }
-
-  async invalidateWorkspaceCache(workspaceId: string): Promise<void> {
-    await this.redis.del(this.cacheKey.list(workspaceId))
+    return this.circuitBreaker.fire(workspaceId)
   }
 
   private async fetchPipelinesFromService(workspaceId: string): Promise<Pipeline[]> {
