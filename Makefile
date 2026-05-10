@@ -32,7 +32,7 @@ grafana-open:
 # ─── Full stack ───────────────────────────────────────────────────────────────
 
 up:
-	$(COMPOSE) up --build -d
+	$(COMPOSE) up -d
 
 down:
 	$(COMPOSE) down
@@ -42,6 +42,32 @@ down-v:
 
 logs:
 	$(COMPOSE) logs -f
+
+# ─── Restart individual service containers (rebuilds image) ──────────────────
+
+restart-gateway:
+	$(COMPOSE) up -d --build api-gateway
+
+restart-ingestion:
+	$(COMPOSE) up -d --build ingestion
+
+restart-pipeline:
+	$(COMPOSE) up -d --build pipeline
+
+restart-delivery:
+	$(COMPOSE) up -d --build delivery
+
+restart-auth:
+	$(COMPOSE) up -d --build auth
+
+restart-config:
+	$(COMPOSE) up -d --build config-service
+
+restart-analytics:
+	$(COMPOSE) up -d --build analytics
+
+restart-dashboard:
+	$(COMPOSE) up -d --build dashboard
 
 # ─── Ingestion service ────────────────────────────────────────────────────────
 
@@ -189,4 +215,6 @@ env-setup:
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         auth-dev auth-migrate-create auth-migrate auth-generate \
         gateway-dev analytics-dev dashboard-dev \
+        restart-gateway restart-ingestion restart-pipeline restart-delivery \
+        restart-auth restart-config restart-analytics restart-dashboard \
         test test-integration test-coverage test-watch install gen-jwt-secret env-setup

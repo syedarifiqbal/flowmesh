@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { GitBranch, Key, ArrowRight, Zap, Share2, CheckCircle } from 'lucide-react'
 import type { Pipeline } from '@flowmesh/shared-types'
 import api from '../../lib/api'
+import ThroughputChart from '../../components/ui/ThroughputChart'
 import ErrorRateChart from '../../components/ui/ErrorRateChart'
 
 interface ApiKey {
@@ -133,7 +134,10 @@ export default function DashboardPage() {
         <StatCard label="Events Ingested" value={totalEvents.toLocaleString()} isLoading={eventsQuery.isLoading} />
       </div>
 
-      <ErrorRateChart />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ThroughputChart />
+        <ErrorRateChart />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {!allDone && (

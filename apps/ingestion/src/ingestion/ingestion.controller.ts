@@ -4,10 +4,19 @@ import { IngestionService } from './ingestion.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { IngestBatchDto } from './dto/ingest-batch.dto'
 import { QueryEventsDto } from './dto/query-events.dto'
+import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
 @Controller('events')
 export class IngestionController {
   constructor(private readonly ingestionService: IngestionService) {}
+
+  @Get('throughput')
+  getThroughput(
+    @WorkspaceId() workspaceId: string,
+    @Query() query: ThroughputQueryDto,
+  ) {
+    return this.ingestionService.getThroughput(workspaceId, query)
+  }
 
   @Get()
   findAll(
