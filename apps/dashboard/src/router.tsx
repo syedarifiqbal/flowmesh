@@ -12,6 +12,7 @@ import DestinationsPage from './pages/destinations/DestinationsPage'
 import ApiKeysPage from './pages/api-keys/ApiKeysPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import DLQPage from './pages/dlq/DLQPage'
+import PipelineBuilderPage from './pages/pipelines/builder/PipelineBuilderPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -44,6 +45,15 @@ export default function AppRouter() {
         <Route path="/dlq" element={<DLQPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
+      {/* Full-screen builder — protected but outside AppLayout */}
+      <Route
+        path="/pipelines/:id/builder"
+        element={
+          <ProtectedRoute>
+            <PipelineBuilderPage />
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
