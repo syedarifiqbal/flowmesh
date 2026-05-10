@@ -8,6 +8,7 @@ const mockService = {
   ingest: vi.fn(),
   ingestBatch: vi.fn(),
   findAll: vi.fn(),
+  getThroughput: vi.fn(),
 }
 
 const WORKSPACE_ID = randomUUID()
@@ -68,6 +69,29 @@ describe('IngestionController', () => {
       expect(result.accepted).toBe(2)
       expect(result.duplicates).toBe(1)
       expect(result.results).toHaveLength(3)
+    })
+  })
+
+  describe('GET /events/throughput', () => {
+    it('returns buckets from the service', async () => {
+      const buckets = [
+        { time: '2026-05-10T12:00:00.000Z', count: 5 },
+        { time: '2026-05-10T12:01:00.000Z', count: 3 },
+      ]
+      mockService.getThroughput.mockResolvedValue({ buckets })
+
+      const result = await controller.getThroughput(WORKSPACE_ID, { range: '1h' })
+
+      expect(result).toEqual({ buckets })
+      expect(mockService.getThroughput).toHaveBeenCalledWith(WORKSPACE_ID, { range: '1h' })
+    })
+
+    it('returns empty buckets when no events in range', async () => {
+      mockService.getThroughput.mockResolvedValue({ buckets: [] })
+
+      const result = await controller.getThroughput(WORKSPACE_ID, { range: '7d' })
+
+      expect(result).toEqual({ buckets: [] })
     })
   })
 })

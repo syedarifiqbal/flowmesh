@@ -7,6 +7,7 @@ import { RabbitMQService } from '../rabbitmq/rabbitmq.service'
 import { RedisService } from '../redis/redis.service'
 import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
+import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
 const mockLogger = {
   info: vi.fn(),
@@ -29,7 +30,7 @@ const WORKSPACE_ID = randomUUID()
 
 describe('IngestionService', () => {
   let service: IngestionService
-  let prisma: { event: { create: ReturnType<typeof vi.fn> } }
+  let prisma: { event: { create: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> }; $queryRaw: ReturnType<typeof vi.fn> }
   let rabbitmq: { publish: ReturnType<typeof vi.fn> }
   let redis: {
     isEventProcessed: ReturnType<typeof vi.fn>
@@ -38,7 +39,10 @@ describe('IngestionService', () => {
   let pubsub: { publishEvent: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
-    prisma = { event: { create: vi.fn().mockResolvedValue({}) } }
+    prisma = {
+      event: { create: vi.fn().mockResolvedValue({}), count: vi.fn(), findMany: vi.fn() },
+      $queryRaw: vi.fn(),
+    }
     rabbitmq = { publish: vi.fn().mockResolvedValue(undefined) }
     redis = {
       isEventProcessed: vi.fn().mockResolvedValue(false),
@@ -149,6 +153,50 @@ describe('IngestionService', () => {
       const results = await service.ingestBatch(events, WORKSPACE_ID)
       const statuses = results.map((r) => r.status)
       expect(statuses).toEqual(['accepted', 'duplicate', 'accepted'])
+    })
+  })
+
+  describe('getThroughput', () => {
+    const makeQuery = (range?: ThroughputQueryDto['range']): ThroughputQueryDto => ({ range })
+
+    it('returns buckets with time and count for 1h range', async () => {
+      prisma.$queryRaw.mockResolvedValue([
+        { time: new Date('2026-05-10T12:00:00Z'), count: BigInt(5) },
+        { time: new Date('2026-05-10T12:01:00Z'), count: BigInt(3) },
+      ])
+
+      const result = await service.getThroughput(WORKSPACE_ID, makeQuery('1h'))
+
+      expect(result.buckets).toHaveLength(2)
+      expect(result.buckets[0]).toEqual({ time: '2026-05-10T12:00:00.000Z', count: 5 })
+      expect(result.buckets[1]).toEqual({ time: '2026-05-10T12:01:00.000Z', count: 3 })
+    })
+
+    it('returns empty buckets when no events exist', async () => {
+      prisma.$queryRaw.mockResolvedValue([])
+
+      const result = await service.getThroughput(WORKSPACE_ID, makeQuery('24h'))
+
+      expect(result.buckets).toEqual([])
+    })
+
+    it('defaults to 1h range when range is undefined', async () => {
+      prisma.$queryRaw.mockResolvedValue([])
+
+      await service.getThroughput(WORKSPACE_ID, makeQuery(undefined))
+
+      expect(prisma.$queryRaw).toHaveBeenCalledOnce()
+    })
+
+    it('converts BigInt counts to plain numbers', async () => {
+      prisma.$queryRaw.mockResolvedValue([
+        { time: new Date('2026-05-10T00:00:00Z'), count: BigInt(1000) },
+      ])
+
+      const result = await service.getThroughput(WORKSPACE_ID, makeQuery('7d'))
+
+      expect(typeof result.buckets[0].count).toBe('number')
+      expect(result.buckets[0].count).toBe(1000)
     })
   })
 })
