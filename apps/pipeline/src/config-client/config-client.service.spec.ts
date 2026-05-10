@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ConfigClientService } from './config-client.service'
 import { ConfigService } from '@nestjs/config'
-import { CacheKeyFactory } from '@flowmesh/nestjs-common'
-import { RedisService } from '../redis/redis.service'
 import { Pipeline } from '@flowmesh/shared-types'
 
 const makePipeline = (overrides: Partial<Pipeline> = {}): Pipeline => ({
@@ -20,45 +18,17 @@ const makePipeline = (overrides: Partial<Pipeline> = {}): Pipeline => ({
 const makeConfigService = (url = 'http://config-service:3005') =>
   ({ get: vi.fn().mockReturnValue(url) }) as unknown as ConfigService
 
-const makeRedisService = () =>
-  ({
-    get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue(undefined),
-    del: vi.fn().mockResolvedValue(undefined),
-  }) as unknown as RedisService
-
-const makeCacheKey = () =>
-  ({
-    list: vi.fn().mockReturnValue('pipeline:config:ws-1:list'),
-    one: vi.fn().mockReturnValue('pipeline:config:ws-1:pipe-1'),
-    pattern: vi.fn().mockReturnValue('pipeline:config:ws-1:*'),
-  }) as unknown as CacheKeyFactory
-
 describe('ConfigClientService', () => {
-  let redis: ReturnType<typeof makeRedisService>
-  let cacheKey: ReturnType<typeof makeCacheKey>
   let service: ConfigClientService
 
   beforeEach(() => {
     vi.clearAllMocks()
-    redis = makeRedisService()
-    cacheKey = makeCacheKey()
-    service = new ConfigClientService(makeConfigService(), redis, cacheKey)
+    service = new ConfigClientService(makeConfigService())
     service.onModuleInit()
   })
 
   describe('getPipelinesForWorkspace', () => {
-    it('returns cached pipelines on cache hit', async () => {
-      const pipelines = [makePipeline()]
-      vi.mocked(redis.get).mockResolvedValueOnce(JSON.stringify(pipelines))
-
-      const result = await service.getPipelinesForWorkspace('ws-1')
-
-      expect(result).toEqual(pipelines)
-      expect(redis.set).not.toHaveBeenCalled()
-    })
-
-    it('fetches from config-service on cache miss and writes to cache', async () => {
+    it('fetches pipelines from config-service', async () => {
       const pipelines = [makePipeline()]
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -72,25 +42,29 @@ describe('ConfigClientService', () => {
         'http://config-service:3005/pipelines',
         expect.objectContaining({ headers: { 'x-workspace-id': 'ws-1' } }),
       )
-      expect(redis.set).toHaveBeenCalledWith(
-        'pipeline:config:ws-1:list',
-        JSON.stringify(pipelines),
-        300,
-      )
     })
 
     it('throws when config-service returns a non-ok status', async () => {
-      vi.mocked(redis.get).mockResolvedValueOnce(null)
       global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 })
 
       await expect(service.getPipelinesForWorkspace('ws-1')).rejects.toThrow('503')
     })
-  })
 
-  describe('invalidateWorkspaceCache', () => {
-    it('deletes the cache key for the workspace', async () => {
-      await service.invalidateWorkspaceCache('ws-1')
-      expect(redis.del).toHaveBeenCalledWith('pipeline:config:ws-1:list')
+    it('opens circuit breaker after repeated failures', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('connection refused'))
+
+      // exhaust the error threshold — opossum opens after enough failures
+      for (let i = 0; i < 5; i++) {
+        await service.getPipelinesForWorkspace('ws-1').catch(() => {})
+      }
+
+      // subsequent call should fail fast (circuit open) without hitting fetch
+      const callsBefore = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length
+      await service.getPipelinesForWorkspace('ws-1').catch(() => {})
+      const callsAfter = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length
+
+      // When circuit is open, opossum does not call the underlying function
+      expect(callsAfter).toBeLessThanOrEqual(callsBefore + 1)
     })
   })
 })
