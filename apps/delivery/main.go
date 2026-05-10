@@ -17,6 +17,7 @@ import (
 	"github.com/flowmesh/delivery/internal/configclient"
 	"github.com/flowmesh/delivery/internal/consumer"
 	"github.com/flowmesh/delivery/internal/dlqhandler"
+	"github.com/flowmesh/delivery/internal/metricshandler"
 	"github.com/flowmesh/delivery/internal/store"
 	"github.com/flowmesh/delivery/internal/testhandler"
 )
@@ -65,6 +66,7 @@ func main() {
 	}
 
 	dlqHandler := dlqhandler.New(dlqStore, conn, logger)
+	metricsHandler := metricshandler.New(pool, logger)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -74,6 +76,7 @@ func main() {
 	mux.HandleFunc("/internal/test-destination", testhandler.Handler)
 	mux.Handle("/dlq", dlqHandler)
 	mux.Handle("/dlq/", dlqHandler)
+	mux.Handle("/error-rate", metricsHandler)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("0.0.0.0:%d", cfg.Port),
