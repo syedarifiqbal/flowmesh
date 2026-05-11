@@ -53,7 +53,9 @@ Clone the repo, run one command, and have a full production event pipeline in 60
 | Visual pipeline builder (React Flow drag-and-drop) | ✅ Available |
 | Destination: Webhook (HMAC-SHA256 signed) | ✅ Available |
 | Destination: PostgreSQL | ✅ Available |
-| Destination: Slack, S3, Discord | 🔧 In development |
+| Destination: Slack | ✅ Available |
+| Destination: Discord | ✅ Available |
+| Destination: S3 | 🔧 In development |
 | Destination test connection (verify before going live) | ✅ Available |
 | Dead letter queue with one-click replay | ✅ Available |
 | Dashboard UI — pipelines, destinations, events explorer | ✅ Available |
@@ -339,7 +341,7 @@ flowmesh/
 ├── apps/
 │   ├── ingestion/          # Event ingestion API (NestJS)
 │   ├── pipeline/           # Pipeline executor — filter, transform, enrich, fan-out (NestJS)
-│   ├── delivery/           # Destination delivery — webhook, postgres, circuit breaker (Go)
+│   ├── delivery/           # Destination delivery — webhook, postgres, slack, discord, circuit breaker (Go)
 │   ├── auth/               # JWT, API keys, workspaces (NestJS)
 │   ├── api-gateway/        # Rate limiting, auth, routing (NestJS)
 │   ├── config-service/     # Pipeline and destination config store (NestJS)
@@ -374,14 +376,15 @@ All significant architectural decisions are documented in [`docs/adr/`](docs/adr
 
 ## Contributing
 
-FlowMesh is in active development. Phase 1 (core event pipeline) is nearly complete.
+FlowMesh is in active development. The core event pipeline and dashboard are complete.
 
 The best ways to contribute right now:
 
 1. **Try it** — run it locally and open issues for anything that doesn't work
 2. **Documentation** — improve examples, fix typos, add missing context
 3. **Tests** — increase coverage for edge cases
-4. **Destinations** — implement a new delivery destination in the Go delivery service
+4. **S3 destination** — the last standard destination; follows the same Go driver pattern as Slack and Discord
+5. **Alerting engine** — condition builder and rule evaluation against the event stream
 
 Please open an issue before starting significant work so we can discuss the approach.
 
@@ -428,13 +431,13 @@ The self-hosted open source version has no limitations. FlowMesh Cloud is for te
 ### Phase 1 — Core pipeline ✅
 Ingestion → RabbitMQ → Pipeline → Go Delivery → destinations → DLQ.
 All distributed systems patterns: rate limiting, idempotency, circuit breaker, backoff retry, dead letter queue.
-Webhook and PostgreSQL destinations working. Centralised logging with Loki + Grafana.
+Webhook, PostgreSQL, Slack, and Discord destinations working. Centralised logging with Loki + Grafana.
 
-### Phase 2 — Dashboard (current)
-Dashboard UI live with pipelines, destinations, events explorer, real-time event feed (WebSocket + Redis pub/sub), visual pipeline builder (React Flow), DLQ replay, and throughput/error rate graphs. Alerting UI in progress.
+### Phase 2 — Dashboard ✅
+Dashboard UI with pipelines, destinations, events explorer, real-time event feed (WebSocket + Redis pub/sub), visual pipeline builder (React Flow), DLQ replay UI, and throughput/error rate graphs.
 
-### Phase 3 — Platform features
-Alerting engine, complete destination library (Slack, S3, Discord).
+### Phase 3 — Platform features (current)
+Alerting engine, S3 destination, Node.js and Go SDKs.
 
 ### Phase 4 — Kubernetes
 Helm chart for teams self-hosting at scale. Independent scaling per service.
