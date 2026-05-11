@@ -2,4 +2,11 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 nvm use --silent 2>/dev/null || true
 
+echo "▶ typecheck (tsc --noEmit across all services)..."
+pnpm turbo run lint
+
+echo "▶ unit tests (vitest)..."
 pnpm test
+
+echo "▶ go tests (delivery service)..."
+cd apps/delivery && go test ./... && cd ../..
