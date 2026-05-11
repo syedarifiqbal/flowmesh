@@ -1,13 +1,9 @@
 package destination
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"time"
 )
 
 // slackDeliver posts the event as a Slack incoming-webhook message.
@@ -60,24 +56,5 @@ func slackDeliver(ctx context.Context, config map[string]any, event map[string]a
 		return fmt.Errorf("marshal slack payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("build slack request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "FlowMesh-Delivery/1.0")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("slack request: %w", err)
-	}
-	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("slack webhook returned %d", resp.StatusCode)
-	}
-
-	return nil
+	return httpPost(ctx, webhookURL, body, nil)
 }

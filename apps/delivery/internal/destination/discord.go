@@ -1,13 +1,9 @@
 package destination
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"time"
 )
 
 // discordDeliver posts the event as a Discord incoming-webhook message using embeds.
@@ -68,24 +64,5 @@ func discordDeliver(ctx context.Context, config map[string]any, event map[string
 		return fmt.Errorf("marshal discord payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("build discord request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "FlowMesh-Delivery/1.0")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("discord request: %w", err)
-	}
-	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("discord webhook returned %d", resp.StatusCode)
-	}
-
-	return nil
+	return httpPost(ctx, webhookURL, body, nil)
 }
