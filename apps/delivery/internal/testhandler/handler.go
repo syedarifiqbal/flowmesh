@@ -41,6 +41,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		testErr = testWebhook(ctx, req.Config)
 	case "postgres":
 		testErr = testPostgres(ctx, req.Config)
+	case "slack", "discord":
+		testErr = testWebhookURL(ctx, req.Config)
 	default:
 		writeResponse(w, http.StatusBadRequest, response{Ok: false, Error: fmt.Sprintf("unsupported destination type: %s", req.Type)})
 		return
@@ -53,7 +55,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	writeResponse(w, http.StatusOK, response{Ok: true})
 }
 
-func testWebhook(ctx context.Context, config map[string]any) error {
+// testWebhookURL verifies that the configured URL is reachable.
+// Used for Slack and Discord where we cannot send a real event payload during a test.
+// Any non-5xx response means the URL accepted the connection and the credentials are likely valid.
+func testWebhookURL(ctx context.Context, config map[string]any) error {
 	url, ok := config["url"].(string)
 	if !ok || url == "" {
 		return fmt.Errorf("missing url in config")
@@ -75,9 +80,13 @@ func testWebhook(ctx context.Context, config map[string]any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 500 {
-		return fmt.Errorf("webhook returned %d — server error", resp.StatusCode)
+		return fmt.Errorf("server returned %d — check your webhook URL", resp.StatusCode)
 	}
 	return nil
+}
+
+func testWebhook(ctx context.Context, config map[string]any) error {
+	return testWebhookURL(ctx, config)
 }
 
 func testPostgres(ctx context.Context, config map[string]any) error {
