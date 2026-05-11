@@ -187,6 +187,12 @@ test-watch:
 install:
 	pnpm install
 
+sdk-node-release:
+	@VERSION=$$(node -p "require('./packages/sdk-node/package.json').version"); \
+	TAG="sdk-node-v$$VERSION"; \
+	echo "Tagging $$TAG and pushing to origin..."; \
+	git tag "$$TAG" && git push origin "$$TAG" && echo "Published trigger: $$TAG"
+
 gen-jwt-secret:
 	@echo "JWT_SECRET=$$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
 	@echo "JWT_REFRESH_SECRET=$$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
@@ -217,4 +223,5 @@ env-setup:
         gateway-dev analytics-dev dashboard-dev \
         restart-gateway restart-ingestion restart-pipeline restart-delivery \
         restart-auth restart-config restart-analytics restart-dashboard \
-        test test-integration test-coverage test-watch install gen-jwt-secret env-setup
+        test test-integration test-coverage test-watch install gen-jwt-secret env-setup \
+        sdk-node-release
