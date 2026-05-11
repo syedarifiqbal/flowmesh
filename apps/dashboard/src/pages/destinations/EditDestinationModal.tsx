@@ -16,12 +16,17 @@ const schema = z.object({
   table: z.string().optional(),
   slackUrl: z.string().optional(),
   slackChannel: z.string().optional(),
+  discordUrl: z.string().optional(),
+  discordUsername: z.string().optional(),
 }).superRefine((data, ctx) => {
   if (data.webhookUrl && !z.string().url().safeParse(data.webhookUrl).success) {
     ctx.addIssue({ code: 'custom', path: ['webhookUrl'], message: 'Enter a valid URL' })
   }
   if (data.slackUrl && !z.string().url().safeParse(data.slackUrl).success) {
     ctx.addIssue({ code: 'custom', path: ['slackUrl'], message: 'Enter a valid Slack webhook URL' })
+  }
+  if (data.discordUrl && !z.string().url().safeParse(data.discordUrl).success) {
+    ctx.addIssue({ code: 'custom', path: ['discordUrl'], message: 'Enter a valid Discord webhook URL' })
   }
 })
 
@@ -90,6 +95,13 @@ export default function EditDestinationModal({ destination, onClose }: Props) {
         if (Object.keys(config).length > 0) body.config = config
       }
 
+      if (destination?.type === 'discord') {
+        const config: Record<string, string> = {}
+        if (values.discordUrl) config.url = values.discordUrl
+        if (values.discordUsername?.trim()) config.username = values.discordUsername.trim()
+        if (Object.keys(config).length > 0) body.config = config
+      }
+
       return api.put(`/destinations/${destination!.id}`, body).then((r) => r.data)
     },
     onSuccess: () => {
@@ -103,7 +115,7 @@ export default function EditDestinationModal({ destination, onClose }: Props) {
   })
 
   const formik = useFormik<FormValues>({
-    initialValues: { name: destination?.name ?? '', webhookUrl: '', secret: '', pgUrl: '', table: '', slackUrl: '', slackChannel: '' },
+    initialValues: { name: destination?.name ?? '', webhookUrl: '', secret: '', pgUrl: '', table: '', slackUrl: '', slackChannel: '', discordUrl: '', discordUsername: '' },
     enableReinitialize: true,
     validationSchema: toFormikValidationSchema(schema),
     onSubmit: async (values) => {
@@ -120,6 +132,7 @@ export default function EditDestinationModal({ destination, onClose }: Props) {
   const isWebhook = destination.type === 'webhook'
   const isPostgres = destination.type === 'postgres'
   const isSlack = destination.type === 'slack'
+  const isDiscord = destination.type === 'discord'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose}>
@@ -288,6 +301,44 @@ export default function EditDestinationModal({ destination, onClose }: Props) {
                   type="text"
                   {...formik.getFieldProps('slackChannel')}
                   placeholder="Leave blank to keep existing channel"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Discord fields */}
+          {isDiscord && (
+            <>
+              <div>
+                <label htmlFor="edit-discord-url" className="block text-sm font-medium text-gray-700 mb-1">
+                  Discord Webhook URL
+                </label>
+                <input
+                  id="edit-discord-url"
+                  type="url"
+                  {...formik.getFieldProps('discordUrl')}
+                  placeholder="Leave blank to keep existing URL"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                {formik.touched.discordUrl && formik.errors.discordUrl && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.discordUrl}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-400">
+                  Filling this field replaces the stored URL and resets the connection status to untested.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="edit-discord-username" className="block text-sm font-medium text-gray-700 mb-1">
+                  Bot display name{' '}
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  id="edit-discord-username"
+                  type="text"
+                  {...formik.getFieldProps('discordUsername')}
+                  placeholder="Leave blank to keep existing name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>

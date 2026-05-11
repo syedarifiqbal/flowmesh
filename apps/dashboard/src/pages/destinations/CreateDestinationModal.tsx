@@ -10,7 +10,7 @@ import { useToastContext } from '../../components/ui/ToastProvider'
 const schema = z
   .object({
     name: z.string().min(1, 'Name is required').max(100),
-    type: z.enum(['webhook', 'postgres', 'slack']),
+    type: z.enum(['webhook', 'postgres', 'slack', 'discord']),
     // webhook fields
     webhookUrl: z.string().optional(),
     secret: z.string().optional(),
@@ -20,6 +20,9 @@ const schema = z
     // slack fields
     slackUrl: z.string().optional(),
     slackChannel: z.string().optional(),
+    // discord fields
+    discordUrl: z.string().optional(),
+    discordUsername: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'webhook') {
@@ -37,6 +40,11 @@ const schema = z
         ctx.addIssue({ code: 'custom', path: ['slackUrl'], message: 'Enter a valid Slack webhook URL' })
       }
     }
+    if (data.type === 'discord') {
+      if (!data.discordUrl || !z.string().url().safeParse(data.discordUrl).success) {
+        ctx.addIssue({ code: 'custom', path: ['discordUrl'], message: 'Enter a valid Discord webhook URL' })
+      }
+    }
   })
 
 type FormValues = z.infer<typeof schema>
@@ -50,6 +58,8 @@ const INITIAL_VALUES: FormValues = {
   table: '',
   slackUrl: '',
   slackChannel: '',
+  discordUrl: '',
+  discordUsername: '',
 }
 
 interface Props {
@@ -90,6 +100,9 @@ export default function CreateDestinationModal({ open, onClose }: Props) {
       } else if (values.type === 'slack') {
         config = { url: values.slackUrl! }
         if (values.slackChannel?.trim()) config.channel = values.slackChannel.trim()
+      } else if (values.type === 'discord') {
+        config = { url: values.discordUrl! }
+        if (values.discordUsername?.trim()) config.username = values.discordUsername.trim()
       } else {
         config = { url: values.pgUrl! }
         if (values.table?.trim()) config.table = values.table.trim()
@@ -137,6 +150,7 @@ export default function CreateDestinationModal({ open, onClose }: Props) {
   const isWebhook = formik.values.type === 'webhook'
   const isPostgres = formik.values.type === 'postgres'
   const isSlack = formik.values.type === 'slack'
+  const isDiscord = formik.values.type === 'discord'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose}>
@@ -184,6 +198,7 @@ export default function CreateDestinationModal({ open, onClose }: Props) {
               <option value="webhook">Webhook</option>
               <option value="postgres">PostgreSQL</option>
               <option value="slack">Slack</option>
+              <option value="discord">Discord</option>
             </select>
           </div>
 
@@ -333,6 +348,52 @@ export default function CreateDestinationModal({ open, onClose }: Props) {
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Overrides the default channel set on the webhook. Leave blank to use the webhook default.
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* ── Discord fields ────────────────────────────────────────── */}
+          {isDiscord && (
+            <>
+              <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-800">
+                Create a webhook in your Discord server under{' '}
+                <strong>Server Settings → Integrations → Webhooks</strong>, then paste the URL below.
+              </div>
+
+              <div>
+                <label htmlFor="dest-discord-url" className="block text-sm font-medium text-gray-700 mb-1">
+                  Discord Webhook URL
+                </label>
+                <input
+                  id="dest-discord-url"
+                  type="url"
+                  {...formik.getFieldProps('discordUrl')}
+                  placeholder="https://discord.com/api/webhooks/..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                {formik.touched.discordUrl && formik.errors.discordUrl && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.discordUrl}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  The URL is encrypted at rest and never returned after saving.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="dest-discord-username" className="block text-sm font-medium text-gray-700 mb-1">
+                  Bot display name{' '}
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  id="dest-discord-username"
+                  type="text"
+                  {...formik.getFieldProps('discordUsername')}
+                  placeholder="FlowMesh"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Overrides the default name set on the webhook.
                 </p>
               </div>
             </>

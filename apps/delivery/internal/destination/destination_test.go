@@ -446,6 +446,148 @@ func TestPostgresDeliver_ConnectError_ReturnsError(t *testing.T) {
 	}
 }
 
+// ── Discord tests ─────────────────────────────────────────────────────────────
+
+func TestDiscordDeliver_HappyPath(t *testing.T) {
+	var gotBody map[string]any
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	event := map[string]any{
+		"eventId":      "evt-1",
+		"eventName":    "order.created",
+		"workspaceId":  "ws-1",
+		"source":       "web",
+		"userId":       "user_123",
+		"pipelineName": "My Pipeline",
+		"receivedAt":   "2026-05-10T19:00:00Z",
+	}
+	cfg := map[string]any{"url": srv.URL}
+
+	err := Dispatch(context.Background(), "discord", cfg, event)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	embeds, _ := gotBody["embeds"].([]any)
+	if len(embeds) != 1 {
+		t.Fatalf("expected 1 embed, got %d", len(embeds))
+	}
+	embed, _ := embeds[0].(map[string]any)
+	if embed["title"] != "order.created" {
+		t.Errorf("expected embed title order.created, got %v", embed["title"])
+	}
+
+	fields, _ := embed["fields"].([]any)
+	var fieldNames []string
+	for _, f := range fields {
+		fm, _ := f.(map[string]any)
+		fieldNames = append(fieldNames, fm["name"].(string))
+	}
+	for _, want := range []string{"Event ID", "Source", "User", "Pipeline", "Workspace", "Received"} {
+		found := false
+		for _, n := range fieldNames {
+			if n == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected field %q in embed, got %v", want, fieldNames)
+		}
+	}
+}
+
+func TestDiscordDeliver_WithUsername_SendsUsernameField(t *testing.T) {
+	var gotBody map[string]any
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	cfg := map[string]any{"url": srv.URL, "username": "FlowMesh Bot"}
+	err := Dispatch(context.Background(), "discord", cfg, map[string]any{"eventName": "test"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if gotBody["username"] != "FlowMesh Bot" {
+		t.Errorf("expected username FlowMesh Bot, got %v", gotBody["username"])
+	}
+}
+
+func TestDiscordDeliver_MissingURL_ReturnsError(t *testing.T) {
+	err := Dispatch(context.Background(), "discord", map[string]any{}, map[string]any{"eventName": "test"})
+	if err == nil {
+		t.Fatal("expected error when url is missing")
+	}
+}
+
+func TestDiscordDeliver_ServerReturns5xx_ReturnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	cfg := map[string]any{"url": srv.URL}
+	err := Dispatch(context.Background(), "discord", cfg, map[string]any{"eventName": "test"})
+	if err == nil {
+		t.Fatal("expected error on 5xx response")
+	}
+}
+
+func TestDiscordDeliver_ServerReturns429_ReturnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	cfg := map[string]any{"url": srv.URL}
+	err := Dispatch(context.Background(), "discord", cfg, map[string]any{"eventName": "test"})
+	if err == nil {
+		t.Fatal("expected error on 429 response")
+	}
+}
+
+func TestDiscordDeliver_UnreachableURL_ReturnsError(t *testing.T) {
+	cfg := map[string]any{"url": "http://127.0.0.1:1"}
+	err := Dispatch(context.Background(), "discord", cfg, map[string]any{"eventName": "test"})
+	if err == nil {
+		t.Fatal("expected error when server is unreachable")
+	}
+}
+
+func TestDiscordDeliver_FallsBackToEventField(t *testing.T) {
+	var gotBody map[string]any
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	event := map[string]any{"event": "order.created", "eventId": "evt-2"}
+	cfg := map[string]any{"url": srv.URL}
+
+	err := Dispatch(context.Background(), "discord", cfg, event)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	embeds, _ := gotBody["embeds"].([]any)
+	embed, _ := embeds[0].(map[string]any)
+	if embed["title"] != "order.created" {
+		t.Errorf("expected fallback event name in embed title, got: %v", embed["title"])
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
 }

@@ -19,6 +19,8 @@ func Dispatch(ctx context.Context, destType string, config map[string]any, event
 		return postgresDeliver(ctx, config, event)
 	case "slack":
 		return slackDeliver(ctx, config, event)
+	case "discord":
+		return discordDeliver(ctx, config, event)
 	default:
 		return fmt.Errorf("unsupported destination type: %s", destType)
 	}
