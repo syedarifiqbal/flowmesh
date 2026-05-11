@@ -437,7 +437,7 @@ Webhook, PostgreSQL, Slack, and Discord destinations working. Centralised loggin
 Dashboard UI with pipelines, destinations, events explorer, real-time event feed (WebSocket + Redis pub/sub), visual pipeline builder (React Flow), DLQ replay UI, and throughput/error rate graphs.
 
 ### Phase 3 — Platform features (current)
-Alerting engine, Node.js and Go SDKs. S3 destination shipped in Phase 3.
+Alerting engine, Go SDK. (S3 destination ✅ and Node.js SDK ✅ shipped.)
 
 ### Phase 4 — Kubernetes
 Helm chart for teams self-hosting at scale. Independent scaling per service.
