@@ -65,7 +65,7 @@ Clone the repo, run one command, and have a full production event pipeline in 60
 | Alerting engine | 🔧 In development |
 | Docker Compose deployment | ✅ Available |
 | Kubernetes Helm chart | 🔧 In development |
-| Node.js SDK | 🔧 In development |
+| Node.js SDK | ✅ Available |
 | Go SDK | 🔧 In development |
 
 ## Deployment
@@ -437,7 +437,7 @@ Webhook, PostgreSQL, Slack, and Discord destinations working. Centralised loggin
 Dashboard UI with pipelines, destinations, events explorer, real-time event feed (WebSocket + Redis pub/sub), visual pipeline builder (React Flow), DLQ replay UI, and throughput/error rate graphs.
 
 ### Phase 3 — Platform features (current)
-Alerting engine, S3 destination, Node.js and Go SDKs.
+Alerting engine. Go SDK. (S3 destination ✅ and Node.js SDK ✅ shipped.)
 
 ### Phase 4 — Kubernetes
 Helm chart for teams self-hosting at scale. Independent scaling per service.
