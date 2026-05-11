@@ -10,8 +10,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -160,16 +163,16 @@ func TestSlackDeliver_HappyPath(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	text, _ := gotBody["text"].(string)
-	if !containsStr(text, "order.created") {
+	if !contains(text, "order.created") {
 		t.Errorf("expected event name in text, got: %s", text)
 	}
-	if !containsStr(text, "ws-1") {
+	if !contains(text, "ws-1") {
 		t.Errorf("expected workspaceId in text, got: %s", text)
 	}
-	if !containsStr(text, "user_123") {
+	if !contains(text, "user_123") {
 		t.Errorf("expected userId in text, got: %s", text)
 	}
-	if !containsStr(text, "web") {
+	if !contains(text, "web") {
 		t.Errorf("expected source in text, got: %s", text)
 	}
 }
@@ -254,7 +257,7 @@ func TestSlackDeliver_FallsBackToEventField(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	text, _ := gotBody["text"].(string)
-	if !containsStr(text, "order.created") {
+	if !contains(text, "order.created") {
 		t.Errorf("expected event name in text, got: %s", text)
 	}
 }
@@ -589,14 +592,145 @@ func TestDiscordDeliver_FallsBackToEventField(t *testing.T) {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
+	return strings.Contains(s, substr)
 }
 
-func containsStr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
+// ── S3 tests ──────────────────────────────────────────────────────────────────
+
+type fakeS3Putter struct {
+	putFn func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+}
+
+func (f *fakeS3Putter) PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+	return f.putFn(ctx, params, optFns...)
+}
+
+// injectS3 replaces newS3Putter for the duration of a test and returns a restore func.
+func injectS3(fake s3Putter) func() {
+	orig := newS3Putter
+	newS3Putter = func(_ aws.Config) s3Putter { return fake }
+	return func() { newS3Putter = orig }
+}
+
+func makeS3Config() map[string]any {
+	return map[string]any{
+		"bucket":          "my-bucket",
+		"region":          "us-east-1",
+		"accessKeyId":     "AKIAIOSFODNN7EXAMPLE",
+		"secretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 	}
-	return false
+}
+
+func TestS3Deliver_HappyPath(t *testing.T) {
+	var gotBucket, gotKey, gotContentType string
+	var gotBody []byte
+
+	fake := &fakeS3Putter{
+		putFn: func(_ context.Context, params *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+			gotBucket = *params.Bucket
+			gotKey = *params.Key
+			gotContentType = *params.ContentType
+			gotBody, _ = io.ReadAll(params.Body)
+			return &s3.PutObjectOutput{}, nil
+		},
+	}
+	defer injectS3(fake)()
+
+	event := map[string]any{"eventId": "evt-s3-1", "event": "order.created"}
+	err := Dispatch(context.Background(), "s3", makeS3Config(), event)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if gotBucket != "my-bucket" {
+		t.Errorf("bucket: want my-bucket, got %s", gotBucket)
+	}
+	if !contains(gotKey, "evt-s3-1.json") {
+		t.Errorf("key should contain eventId, got %s", gotKey)
+	}
+	if !contains(gotKey, "flowmesh-events/") {
+		t.Errorf("key should use default prefix, got %s", gotKey)
+	}
+	if gotContentType != "application/json" {
+		t.Errorf("content-type: want application/json, got %s", gotContentType)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(gotBody, &decoded); err != nil {
+		t.Errorf("body is not valid JSON: %v", err)
+	}
+	if decoded["eventId"] != "evt-s3-1" {
+		t.Errorf("body eventId mismatch: got %v", decoded["eventId"])
+	}
+}
+
+func TestS3Deliver_CustomPrefix(t *testing.T) {
+	var gotKey string
+	fake := &fakeS3Putter{
+		putFn: func(_ context.Context, params *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+			gotKey = *params.Key
+			return &s3.PutObjectOutput{}, nil
+		},
+	}
+	defer injectS3(fake)()
+
+	cfg := makeS3Config()
+	cfg["prefix"] = "custom-prefix"
+
+	err := Dispatch(context.Background(), "s3", cfg, map[string]any{"eventId": "evt-2"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(gotKey, "custom-prefix/") {
+		t.Errorf("key should use custom prefix, got %s", gotKey)
+	}
+}
+
+func TestS3Deliver_MissingBucket_ReturnsError(t *testing.T) {
+	cfg := makeS3Config()
+	delete(cfg, "bucket")
+	err := Dispatch(context.Background(), "s3", cfg, map[string]any{})
+	if err == nil {
+		t.Fatal("expected error when bucket is missing")
+	}
+}
+
+func TestS3Deliver_MissingRegion_ReturnsError(t *testing.T) {
+	cfg := makeS3Config()
+	delete(cfg, "region")
+	err := Dispatch(context.Background(), "s3", cfg, map[string]any{})
+	if err == nil {
+		t.Fatal("expected error when region is missing")
+	}
+}
+
+func TestS3Deliver_MissingAccessKeyId_ReturnsError(t *testing.T) {
+	cfg := makeS3Config()
+	delete(cfg, "accessKeyId")
+	err := Dispatch(context.Background(), "s3", cfg, map[string]any{})
+	if err == nil {
+		t.Fatal("expected error when accessKeyId is missing")
+	}
+}
+
+func TestS3Deliver_MissingSecretAccessKey_ReturnsError(t *testing.T) {
+	cfg := makeS3Config()
+	delete(cfg, "secretAccessKey")
+	err := Dispatch(context.Background(), "s3", cfg, map[string]any{})
+	if err == nil {
+		t.Fatal("expected error when secretAccessKey is missing")
+	}
+}
+
+func TestS3Deliver_PutObjectFails_ReturnsError(t *testing.T) {
+	fake := &fakeS3Putter{
+		putFn: func(_ context.Context, _ *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+			return nil, errors.New("NoSuchBucket")
+		},
+	}
+	defer injectS3(fake)()
+
+	err := Dispatch(context.Background(), "s3", makeS3Config(), map[string]any{"eventId": "evt-fail"})
+	if err == nil {
+		t.Fatal("expected error when PutObject fails")
+	}
 }

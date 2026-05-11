@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -43,6 +46,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		testErr = testPostgres(ctx, req.Config)
 	case "slack", "discord":
 		testErr = testWebhookURL(ctx, req.Config)
+	case "s3":
+		testErr = testS3(ctx, req.Config)
 	default:
 		writeResponse(w, http.StatusBadRequest, response{Ok: false, Error: fmt.Sprintf("unsupported destination type: %s", req.Type)})
 		return
@@ -113,6 +118,44 @@ func testPostgres(ctx context.Context, config map[string]any) error {
 	}
 	if !exists {
 		return fmt.Errorf("table %q does not exist", table)
+	}
+
+	return nil
+}
+
+func testS3(ctx context.Context, config map[string]any) error {
+	bucket, ok := config["bucket"].(string)
+	if !ok || bucket == "" {
+		return fmt.Errorf("missing bucket in config")
+	}
+
+	region, ok := config["region"].(string)
+	if !ok || region == "" {
+		return fmt.Errorf("missing region in config")
+	}
+
+	accessKeyID, ok := config["accessKeyId"].(string)
+	if !ok || accessKeyID == "" {
+		return fmt.Errorf("missing accessKeyId in config")
+	}
+
+	secretAccessKey, ok := config["secretAccessKey"].(string)
+	if !ok || secretAccessKey == "" {
+		return fmt.Errorf("missing secretAccessKey in config")
+	}
+
+	creds := credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, "")
+	cfg := aws.Config{
+		Region:      region,
+		Credentials: creds,
+	}
+	client := s3.NewFromConfig(cfg)
+
+	_, err := client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		return fmt.Errorf("cannot access bucket %q — check credentials and region: %w", bucket, err)
 	}
 
 	return nil

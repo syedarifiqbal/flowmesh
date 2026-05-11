@@ -55,7 +55,7 @@ Clone the repo, run one command, and have a full production event pipeline in 60
 | Destination: PostgreSQL | ✅ Available |
 | Destination: Slack | ✅ Available |
 | Destination: Discord | ✅ Available |
-| Destination: S3 | 🔧 In development |
+| Destination: S3 | ✅ Available |
 | Destination test connection (verify before going live) | ✅ Available |
 | Dead letter queue with one-click replay | ✅ Available |
 | Dashboard UI — pipelines, destinations, events explorer | ✅ Available |
@@ -341,7 +341,7 @@ flowmesh/
 ├── apps/
 │   ├── ingestion/          # Event ingestion API (NestJS)
 │   ├── pipeline/           # Pipeline executor — filter, transform, enrich, fan-out (NestJS)
-│   ├── delivery/           # Destination delivery — webhook, postgres, slack, discord, circuit breaker (Go)
+│   ├── delivery/           # Destination delivery — webhook, postgres, slack, discord, s3, circuit breaker (Go)
 │   ├── auth/               # JWT, API keys, workspaces (NestJS)
 │   ├── api-gateway/        # Rate limiting, auth, routing (NestJS)
 │   ├── config-service/     # Pipeline and destination config store (NestJS)
@@ -383,8 +383,8 @@ The best ways to contribute right now:
 1. **Try it** — run it locally and open issues for anything that doesn't work
 2. **Documentation** — improve examples, fix typos, add missing context
 3. **Tests** — increase coverage for edge cases
-4. **S3 destination** — the last standard destination; follows the same Go driver pattern as Slack and Discord
-5. **Alerting engine** — condition builder and rule evaluation against the event stream
+4. **Alerting engine** — condition builder and rule evaluation against the event stream
+5. **Node.js SDK** — wraps the ingestion API for server-side use
 
 Please open an issue before starting significant work so we can discuss the approach.
 
@@ -437,7 +437,7 @@ Webhook, PostgreSQL, Slack, and Discord destinations working. Centralised loggin
 Dashboard UI with pipelines, destinations, events explorer, real-time event feed (WebSocket + Redis pub/sub), visual pipeline builder (React Flow), DLQ replay UI, and throughput/error rate graphs.
 
 ### Phase 3 — Platform features (current)
-Alerting engine, S3 destination, Node.js and Go SDKs.
+Alerting engine, Node.js and Go SDKs. S3 destination shipped in Phase 3.
 
 ### Phase 4 — Kubernetes
 Helm chart for teams self-hosting at scale. Independent scaling per service.
