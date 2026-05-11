@@ -39,12 +39,12 @@ func slackDeliver(ctx context.Context, config map[string]any, event map[string]a
 		meta += fmt.Sprintf("  |  received: `%s`", receivedAt)
 	}
 
-	workspace := workspaceID
+	footer := fmt.Sprintf("event_id: `%s`  workspace: `%s`", eventID, workspaceID)
 	if pipelineName != "" {
-		workspace = fmt.Sprintf("%s (`%s`)", pipelineName, workspaceID)
+		footer += fmt.Sprintf("  pipeline: `%s`", pipelineName)
 	}
 
-	text := fmt.Sprintf("*%s*\n%s\nevent_id: `%s`  workspace: %s", eventName, meta, eventID, workspace)
+	text := fmt.Sprintf("*%s*\n%s\n%s", eventName, meta, footer)
 
 	payload := map[string]any{"text": text}
 	if ch, ok := config["channel"].(string); ok && ch != "" {

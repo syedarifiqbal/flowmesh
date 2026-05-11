@@ -21,6 +21,8 @@ func Dispatch(ctx context.Context, destType string, config map[string]any, event
 		return slackDeliver(ctx, config, event)
 	case "discord":
 		return discordDeliver(ctx, config, event)
+	case "s3":
+		return s3Deliver(ctx, config, event)
 	default:
 		return fmt.Errorf("unsupported destination type: %s", destType)
 	}
