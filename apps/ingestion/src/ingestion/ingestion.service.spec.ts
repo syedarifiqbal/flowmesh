@@ -16,7 +16,7 @@ const mockLogger = {
   error: vi.fn(),
 } as unknown as PinoLogger
 
-const makeEvent = (overrides: Partial<IngestEventDto> = {}): IngestEventDto => ({
+const makeEvent = (overrides: Partial<IngestEventDto> = {}): IngestEventDto & { correlationId: string } => ({
   event: 'order.created',
   correlationId: randomUUID(),
   source: 'order-service',
