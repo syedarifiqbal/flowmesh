@@ -133,6 +133,132 @@ func TestWebhookDeliver_ContextCancelled_ReturnsError(t *testing.T) {
 	}
 }
 
+// ── Slack tests ───────────────────────────────────────────────────────────────
+
+func TestSlackDeliver_HappyPath(t *testing.T) {
+	var gotBody map[string]any
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	event := map[string]any{
+		"eventId":     "evt-1",
+		"eventName":   "order.created",
+		"workspaceId": "ws-1",
+		"source":      "web",
+		"userId":      "user_123",
+		"receivedAt":  "2026-05-10T19:00:00Z",
+	}
+	cfg := map[string]any{"url": srv.URL}
+
+	err := Dispatch(context.Background(), "slack", cfg, event)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	text, _ := gotBody["text"].(string)
+	if !containsStr(text, "order.created") {
+		t.Errorf("expected event name in text, got: %s", text)
+	}
+	if !containsStr(text, "ws-1") {
+		t.Errorf("expected workspaceId in text, got: %s", text)
+	}
+	if !containsStr(text, "user_123") {
+		t.Errorf("expected userId in text, got: %s", text)
+	}
+	if !containsStr(text, "web") {
+		t.Errorf("expected source in text, got: %s", text)
+	}
+}
+
+func TestSlackDeliver_WithChannel_SendsChannelField(t *testing.T) {
+	var gotBody map[string]any
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	cfg := map[string]any{"url": srv.URL, "channel": "#alerts"}
+	err := Dispatch(context.Background(), "slack", cfg, map[string]any{"eventName": "test"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if gotBody["channel"] != "#alerts" {
+		t.Errorf("expected channel #alerts, got %v", gotBody["channel"])
+	}
+}
+
+func TestSlackDeliver_MissingURL_ReturnsError(t *testing.T) {
+	err := Dispatch(context.Background(), "slack", map[string]any{}, map[string]any{"eventName": "test"})
+	if err == nil {
+		t.Fatal("expected error when url is missing")
+	}
+}
+
+func TestSlackDeliver_ServerReturns5xx_ReturnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	cfg := map[string]any{"url": srv.URL}
+	err := Dispatch(context.Background(), "slack", cfg, map[string]any{"eventName": "test"})
+	if err == nil {
+		t.Fatal("expected error on 5xx response")
+	}
+}
+
+func TestSlackDeliver_ServerReturns429_ReturnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	cfg := map[string]any{"url": srv.URL}
+	err := Dispatch(context.Background(), "slack", cfg, map[string]any{"eventName": "test"})
+	if err == nil {
+		t.Fatal("expected error on 429 response")
+	}
+}
+
+func TestSlackDeliver_UnreachableURL_ReturnsError(t *testing.T) {
+	cfg := map[string]any{"url": "http://127.0.0.1:1"}
+	err := Dispatch(context.Background(), "slack", cfg, map[string]any{"eventName": "test"})
+	if err == nil {
+		t.Fatal("expected error when server is unreachable")
+	}
+}
+
+func TestSlackDeliver_FallsBackToEventField(t *testing.T) {
+	var gotBody map[string]any
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	// No eventName field — should fall back to event field
+	event := map[string]any{"event": "order.created", "eventId": "evt-2"}
+	cfg := map[string]any{"url": srv.URL}
+
+	err := Dispatch(context.Background(), "slack", cfg, event)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	text, _ := gotBody["text"].(string)
+	if !containsStr(text, "order.created") {
+		t.Errorf("expected event name in text, got: %s", text)
+	}
+}
+
 // ── PostgreSQL tests ──────────────────────────────────────────────────────────
 
 // fakePgConn implements pgExecutor without a real database.

@@ -10,13 +10,16 @@ import { useToastContext } from '../../components/ui/ToastProvider'
 const schema = z
   .object({
     name: z.string().min(1, 'Name is required').max(100),
-    type: z.enum(['webhook', 'postgres']),
+    type: z.enum(['webhook', 'postgres', 'slack']),
     // webhook fields
     webhookUrl: z.string().optional(),
     secret: z.string().optional(),
     // postgres fields
     pgUrl: z.string().optional(),
     table: z.string().optional(),
+    // slack fields
+    slackUrl: z.string().optional(),
+    slackChannel: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'webhook') {
@@ -27,6 +30,11 @@ const schema = z
     if (data.type === 'postgres') {
       if (!data.pgUrl || data.pgUrl.trim() === '') {
         ctx.addIssue({ code: 'custom', path: ['pgUrl'], message: 'Connection URL is required' })
+      }
+    }
+    if (data.type === 'slack') {
+      if (!data.slackUrl || !z.string().url().safeParse(data.slackUrl).success) {
+        ctx.addIssue({ code: 'custom', path: ['slackUrl'], message: 'Enter a valid Slack webhook URL' })
       }
     }
   })
@@ -40,6 +48,8 @@ const INITIAL_VALUES: FormValues = {
   secret: '',
   pgUrl: '',
   table: '',
+  slackUrl: '',
+  slackChannel: '',
 }
 
 interface Props {
@@ -73,16 +83,17 @@ export default function CreateDestinationModal({ open, onClose }: Props) {
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
-      const config =
-        values.type === 'webhook'
-          ? {
-              url: values.webhookUrl,
-              ...(values.secret ? { secret: values.secret } : {}),
-            }
-          : {
-              url: values.pgUrl,
-              ...(values.table?.trim() ? { table: values.table.trim() } : {}),
-            }
+      let config: Record<string, string>
+      if (values.type === 'webhook') {
+        config = { url: values.webhookUrl! }
+        if (values.secret) config.secret = values.secret
+      } else if (values.type === 'slack') {
+        config = { url: values.slackUrl! }
+        if (values.slackChannel?.trim()) config.channel = values.slackChannel.trim()
+      } else {
+        config = { url: values.pgUrl! }
+        if (values.table?.trim()) config.table = values.table.trim()
+      }
 
       return api
         .post('/destinations', { name: values.name, type: values.type, config })
@@ -125,6 +136,7 @@ export default function CreateDestinationModal({ open, onClose }: Props) {
 
   const isWebhook = formik.values.type === 'webhook'
   const isPostgres = formik.values.type === 'postgres'
+  const isSlack = formik.values.type === 'slack'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose}>
@@ -171,6 +183,7 @@ export default function CreateDestinationModal({ open, onClose }: Props) {
             >
               <option value="webhook">Webhook</option>
               <option value="postgres">PostgreSQL</option>
+              <option value="slack">Slack</option>
             </select>
           </div>
 
@@ -266,6 +279,60 @@ export default function CreateDestinationModal({ open, onClose }: Props) {
                 <p className="mt-1 text-xs text-gray-500">
                   Defaults to <code className="bg-gray-100 px-1 rounded">flowmesh_events</code>. Use{' '}
                   <code className="bg-gray-100 px-1 rounded">schema.table</code> for schema-qualified names.
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* ── Slack fields ──────────────────────────────────────────── */}
+          {isSlack && (
+            <>
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                Create an incoming webhook in your Slack workspace at{' '}
+                <a
+                  href="https://api.slack.com/apps"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-medium"
+                >
+                  api.slack.com/apps
+                </a>
+                , then paste the webhook URL below.
+              </div>
+
+              <div>
+                <label htmlFor="dest-slack-url" className="block text-sm font-medium text-gray-700 mb-1">
+                  Slack Webhook URL
+                </label>
+                <input
+                  id="dest-slack-url"
+                  type="url"
+                  {...formik.getFieldProps('slackUrl')}
+                  placeholder="https://hooks.slack.com/services/T.../B.../..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                {formik.touched.slackUrl && formik.errors.slackUrl && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.slackUrl}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  The URL is encrypted at rest and never returned after saving.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="dest-slack-channel" className="block text-sm font-medium text-gray-700 mb-1">
+                  Channel{' '}
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  id="dest-slack-channel"
+                  type="text"
+                  {...formik.getFieldProps('slackChannel')}
+                  placeholder="#alerts"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Overrides the default channel set on the webhook. Leave blank to use the webhook default.
                 </p>
               </div>
             </>

@@ -14,9 +14,14 @@ const schema = z.object({
   secret: z.string().optional(),
   pgUrl: z.string().optional(),
   table: z.string().optional(),
+  slackUrl: z.string().optional(),
+  slackChannel: z.string().optional(),
 }).superRefine((data, ctx) => {
   if (data.webhookUrl && !z.string().url().safeParse(data.webhookUrl).success) {
     ctx.addIssue({ code: 'custom', path: ['webhookUrl'], message: 'Enter a valid URL' })
+  }
+  if (data.slackUrl && !z.string().url().safeParse(data.slackUrl).success) {
+    ctx.addIssue({ code: 'custom', path: ['slackUrl'], message: 'Enter a valid Slack webhook URL' })
   }
 })
 
@@ -78,6 +83,13 @@ export default function EditDestinationModal({ destination, onClose }: Props) {
         if (Object.keys(config).length > 0) body.config = config
       }
 
+      if (destination?.type === 'slack') {
+        const config: Record<string, string> = {}
+        if (values.slackUrl) config.url = values.slackUrl
+        if (values.slackChannel?.trim()) config.channel = values.slackChannel.trim()
+        if (Object.keys(config).length > 0) body.config = config
+      }
+
       return api.put(`/destinations/${destination!.id}`, body).then((r) => r.data)
     },
     onSuccess: () => {
@@ -91,7 +103,7 @@ export default function EditDestinationModal({ destination, onClose }: Props) {
   })
 
   const formik = useFormik<FormValues>({
-    initialValues: { name: destination?.name ?? '', webhookUrl: '', secret: '', pgUrl: '', table: '' },
+    initialValues: { name: destination?.name ?? '', webhookUrl: '', secret: '', pgUrl: '', table: '', slackUrl: '', slackChannel: '' },
     enableReinitialize: true,
     validationSchema: toFormikValidationSchema(schema),
     onSubmit: async (values) => {
@@ -107,6 +119,7 @@ export default function EditDestinationModal({ destination, onClose }: Props) {
 
   const isWebhook = destination.type === 'webhook'
   const isPostgres = destination.type === 'postgres'
+  const isSlack = destination.type === 'slack'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose}>
@@ -237,6 +250,44 @@ export default function EditDestinationModal({ destination, onClose }: Props) {
                   type="text"
                   {...formik.getFieldProps('table')}
                   placeholder="Leave blank to keep existing table"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Slack fields */}
+          {isSlack && (
+            <>
+              <div>
+                <label htmlFor="edit-slack-url" className="block text-sm font-medium text-gray-700 mb-1">
+                  Slack Webhook URL
+                </label>
+                <input
+                  id="edit-slack-url"
+                  type="url"
+                  {...formik.getFieldProps('slackUrl')}
+                  placeholder="Leave blank to keep existing URL"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                {formik.touched.slackUrl && formik.errors.slackUrl && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.slackUrl}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-400">
+                  Filling this field replaces the stored URL and resets the connection status to untested.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="edit-slack-channel" className="block text-sm font-medium text-gray-700 mb-1">
+                  Channel{' '}
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  id="edit-slack-channel"
+                  type="text"
+                  {...formik.getFieldProps('slackChannel')}
+                  placeholder="Leave blank to keep existing channel"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>

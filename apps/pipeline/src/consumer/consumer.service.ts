@@ -225,7 +225,7 @@ export class ConsumerService implements OnModuleInit, OnModuleDestroy {
       const destinationSteps = pipeline.steps.filter((s: PipelineStep) => s.type === 'destination')
       for (const step of destinationSteps) {
         const destinationId = (step.config as Record<string, unknown>)['destinationId'] as string
-        await this.fanout.publishToDestination(execution.id, destinationId, meta.workspaceId, processedEvent)
+        await this.fanout.publishToDestination(execution.id, destinationId, meta.workspaceId, pipeline.name, processedEvent)
       }
 
       await this.prisma.pipelineExecution.update({

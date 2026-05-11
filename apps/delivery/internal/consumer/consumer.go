@@ -33,6 +33,7 @@ type fanoutMeta struct {
 	ExecutionID   string `json:"executionId"`
 	DestinationID string `json:"destinationId"`
 	WorkspaceID   string `json:"workspaceId"`
+	PipelineName  string `json:"pipelineName"`
 	DLQEventID    string `json:"dlqEventId,omitempty"`
 }
 
@@ -148,6 +149,11 @@ func (c *Consumer) handleMessageInternal(ctx context.Context, a acker, body []by
 	}
 
 	cb := c.breakerFor(fm.Meta.DestinationID, dest.Type)
+
+	// Stamp meta fields into the event map so destination drivers can use them
+	// without needing access to the fanout message envelope.
+	fm.Event["workspaceId"] = fm.Meta.WorkspaceID
+	fm.Event["pipelineName"] = fm.Meta.PipelineName
 
 	eventID, _ := fm.Event["eventId"].(string)
 	eventName, _ := fm.Event["eventName"].(string)

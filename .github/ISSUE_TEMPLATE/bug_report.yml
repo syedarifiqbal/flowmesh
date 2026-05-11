@@ -1,0 +1,76 @@
+name: Bug Report
+description: Something is broken or behaving unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more detail you provide, the faster we can fix it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. What did you expect to happen, and what actually happened?
+      placeholder: "When I send an event with a duplicate eventId, the response says 'accepted' instead of 'duplicate'."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps to reproduce the issue. Include curl commands or code snippets where relevant.
+      placeholder: |
+        1. Start services with `docker compose up`
+        2. Send `POST /ingest/events` with eventId `abc-123`
+        3. Send the same event again
+        4. Second response shows status: 'accepted'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      placeholder: Second response should show status: 'duplicate' with a 202 status code.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: Which service is affected?
+      options:
+        - API Gateway
+        - Ingestion
+        - Pipeline
+        - Delivery
+        - Auth
+        - Config
+        - Analytics
+        - Dashboard
+        - Multiple services
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: How are you running FlowMesh?
+      placeholder: |
+        - Deployment: Docker Compose / local dev
+        - OS: macOS 14 / Ubuntu 22.04
+        - Node.js: 20.x
+        - Go: 1.22 (if relevant)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any relevant log output. Use the correlationId to trace the event across services.
+      render: shell
