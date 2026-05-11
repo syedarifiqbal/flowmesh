@@ -1,0 +1,42 @@
+name: Good First Issue
+description: A well-scoped task suitable for a first-time contributor (maintainers only)
+labels: ["good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This template is for maintainers to create well-scoped issues for first-time contributors.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: What needs to be done? Be specific — reference the file or endpoint if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: Why does this matter for users or contributors?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Concrete, testable requirements.
+      placeholder: |
+        - [ ] The change is implemented
+        - [ ] Tests are added or updated
+        - [ ] README updated if the API contract changes
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Any relevant links, file paths, or prior discussion.

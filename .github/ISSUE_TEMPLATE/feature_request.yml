@@ -1,0 +1,57 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a feature request, check the [roadmap](https://github.com/syedarifiqbal/flowmesh#roadmap) and existing issues to avoid duplicates.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the problem or limitation you are running into. Focus on the why, not the solution.
+      placeholder: "When I have a pipeline with 10+ steps, there is no way to see which step failed or how long each step took."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen? If you have a specific implementation in mind, describe it here.
+      placeholder: "Add per-step execution time and status to the pipeline execution log, visible in the dashboard."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you tried any workarounds? Are there other ways to solve the problem?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this affect?
+      options:
+        - API / Ingestion
+        - Pipeline executor
+        - Delivery / Destinations
+        - Dashboard UI
+        - Auth / API keys
+        - Alerting
+        - Docker / Deployment
+        - SDK
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Are you willing to contribute this?
+      options:
+        - label: I would like to implement this myself and open a PR

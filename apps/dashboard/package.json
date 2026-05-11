@@ -13,6 +13,7 @@
   "dependencies": {
     "@flowmesh/shared-types": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
+    "@xyflow/react": "^12.10.2",
     "axios": "^1.6.0",
     "formik": "^2.4.9",
     "lucide-react": "^0.344.0",

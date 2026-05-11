@@ -1,113 +1,78 @@
 # Contributing to FlowMesh
 
-Thanks for your interest in contributing. FlowMesh is a self-hosted, open-source event pipeline platform — think Segment + Mixpanel + PagerDuty in one Docker deployment, free forever.
+Thank you for your interest in contributing. FlowMesh is an active open-source project and contributions of all kinds are welcome — bug reports, documentation improvements, new destination drivers, test coverage, and features.
 
-This guide covers everything you need to go from zero to your first merged PR.
+---
+
+## Before You Start
+
+**Open an issue before starting significant work.** This lets us discuss the approach and avoids wasted effort if the direction needs adjustment. For small changes (typos, documentation, one-liners), just open a PR directly.
 
 ---
 
 ## What's Working Right Now
 
-Before you dive in, here is an honest picture of where things stand:
-
-| Area | Status | Notes |
-|------|--------|-------|
-| Ingestion service | ✅ Complete | Schema validation, idempotency, RabbitMQ publish, 80%+ test coverage |
-| Config service | ✅ Complete | Pipeline CRUD, destination credentials (AES-256-GCM encrypted), Redis cache |
-| Docker Compose setup | ✅ Working | One command starts all infrastructure |
-| Pipeline executor | ⬜ Not started | Filter / transform / enrich / fan-out — good place to contribute |
-| Delivery service (Go) | ⬜ Not started | Destinations, circuit breaker, retry, DLQ |
-| API Gateway | ⬜ Not started | Rate limiting, routing, token blacklist |
-| Auth service | ⬜ Not started | JWT, API keys, workspaces |
-| Analytics service | ⬜ Not started | Metrics aggregation, TimescaleDB |
-| Alert service | ⬜ Not started | Alert rule evaluation |
-| Dashboard (React) | ⬜ Not started | Real-time event feed, pipeline builder |
-| Node.js SDK | ⬜ Not started | Client library for sending events |
-
-**Phase 1 goal:** `POST /events` → Ingestion → RabbitMQ → Pipeline → Delivery → Destination (end-to-end working).
+| Service / Area | Status |
+|---|---|
+| API Gateway — rate limiting, auth, routing | ✅ Complete |
+| Ingestion — validation, idempotency, RabbitMQ publish | ✅ Complete |
+| Pipeline — filter, transform, enrich, fan-out | ✅ Complete |
+| Delivery (Go) — webhook, postgres, circuit breaker, retry, DLQ | ✅ Complete |
+| Auth — JWT, API keys, workspaces | ✅ Complete |
+| Config service — pipeline CRUD, encrypted destination credentials | ✅ Complete |
+| Dashboard — pipelines, destinations, events, pipeline builder, live feed, DLQ replay | ✅ Complete |
+| Analytics — WebSocket live feed | ✅ Complete |
+| Alert service | 🔧 In progress |
+| Slack / S3 / Discord destinations | 🔧 In progress |
+| Node.js SDK | ⬜ Not started |
 
 ---
 
-## How to Set Up Locally
+## Development Setup
 
 ### Prerequisites
 
 - Node.js 20+
 - pnpm 8.15+
+- Go 1.21+ (only if working on the delivery service)
 - Docker and Docker Compose
-- Go 1.22+ (only if working on the delivery service)
 
-### 1. Clone and install
+### Setup
 
 ```bash
+# Clone the repo
 git clone https://github.com/syedarifiqbal/flowmesh.git
 cd flowmesh
+
+# Install Node.js dependencies
 pnpm install
-```
 
-### 2. Set up environment variables
-
-```bash
-make env-setup
-```
-
-This copies `.env.example` into each service directory (`apps/ingestion/.env`, `apps/config-service/.env`, etc.) and creates a root `.env` for Docker infra passwords. Each service loads its own `.env` — there is no shared root env loader.
-
-For secrets that need generated values:
-
-```bash
-make gen-jwt-secret        # generates JWT_SECRET and JWT_REFRESH_SECRET
-make gen-encryption-key    # generates CONFIG_ENCRYPTION_KEY (AES-256-GCM, 32 bytes)
-```
-
-Paste the output into the relevant service `.env` file.
-
-### 3. Start infrastructure
-
-```bash
+# Start all infrastructure (Postgres, Redis, RabbitMQ)
 make infra-up
-```
 
-This starts PostgreSQL (port 5433), RabbitMQ (port 5672, management UI at 15672), Redis ephemeral (6379), and Redis persistent (6380) in Docker. Takes about 15 seconds on first run.
-
-### 4. Run a service
-
-```bash
-# Ingestion — most complete service, start here
+# Run migrations for the services you are working on
 make ingestion-migrate
-make ingestion-dev
-
-# Config service
+make auth-migrate
 make config-migrate
-make config-dev
-```
 
-- Ingestion API: `http://localhost:3001`
-- Config API: `http://localhost:3002`
-
-### 5. Send a test event
-
-```bash
-curl -X POST http://localhost:3001/events \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event": "user.signed_up",
-    "correlationId": "req-abc123",
-    "source": "web-app",
-    "version": "1.0",
-    "userId": "user-42",
-    "properties": { "plan": "free" }
-  }'
+# Start a service in watch mode
+make ingestion-dev
 ```
 
 ### Running tests
 
 ```bash
-make test              # unit tests across all services
-make test-integration  # integration tests (requires infra running)
-make test-coverage     # coverage report
-make test-watch        # watch mode during development
+# Unit tests across all services (must stay above 80% coverage)
+make test
+
+# Integration tests — requires running infrastructure
+make test-integration
+
+# Go tests (delivery service only)
+cd apps/delivery && go test ./...
 ```
+
+All must pass before opening a PR. CI runs the same checks automatically.
 
 ---
 
@@ -115,21 +80,20 @@ make test-watch        # watch mode during development
 
 ### Good first issues
 
-Look for issues labeled [`good first issue`](https://github.com/syedarifiqbal/flowmesh/labels/good%20first%20issue). These are scoped to a single file or module and do not require deep knowledge of the full system.
+Look for issues labelled [`good first issue`](https://github.com/syedarifiqbal/flowmesh/labels/good%20first%20issue). These are self-contained and require no deep codebase knowledge. Examples:
 
-Examples of tasks that make good first contributions:
-
-- Add a README for the ingestion service or config service (each is a standalone issue)
-- Add a new filter operator to the pipeline executor (e.g. `contains`, `regex`)
-- Add a new delivery destination to the Go delivery service (e.g. Discord, email)
-- Improve an error message to include the field name that failed validation
+- Add a `README.md` for a service (each is a separate, standalone issue)
+- Improve an error message to include the field that failed validation
 - Add a missing unit test for an edge case in an existing module
+- Add a new filter operator to the pipeline executor (e.g. `regex`)
 
 ### Bigger contributions
 
-For anything that touches multiple services, changes a data schema, or introduces a new pattern — open an issue or start a discussion before writing code. The architecture has deliberate constraints (see `docs/adr/`) and aligning early is better than reworking late.
+For anything that touches multiple services, changes a data schema, or introduces a new pattern, open an issue first. The architecture has deliberate constraints (documented in `docs/adr/`) and aligning early is better than reworking late.
 
-If you want to implement a full service (pipeline executor, a delivery destination) — comment on the relevant issue or open one and we will scope it together.
+### Destination drivers
+
+The Go delivery service (`apps/delivery`) has a clear pattern for adding new destination types. Each destination is a function that receives a config map and an event map. Look at `internal/destination/destination.go` for the existing webhook and PostgreSQL drivers as a reference. Good targets: Slack, S3, Discord.
 
 ---
 
@@ -138,26 +102,23 @@ If you want to implement a full service (pipeline executor, a delivery destinati
 ```
 flowmesh/
 ├── apps/
-│   ├── ingestion/          ← Start here. Most complete NestJS service.
-│   ├── config-service/     ← Pipeline definitions, encrypted destination credentials
-│   ├── pipeline/           ← Filter / transform / enrich / fan-out executor
-│   ├── delivery/           ← Go: consume queue, deliver to destinations
-│   ├── auth/               ← JWT, API keys, RBAC
-│   ├── analytics/          ← Metrics aggregation
-│   ├── alert/              ← Alert rule evaluation
-│   ├── api-gateway/        ← Edge: rate limiting, routing
-│   └── dashboard/          ← React frontend
+│   ├── ingestion/          NestJS — receive events, validate, deduplicate, publish to RabbitMQ
+│   ├── pipeline/           NestJS — filter / transform / enrich / fan-out
+│   ├── delivery/           Go    — deliver to destinations, circuit breaker, retry, DLQ
+│   ├── auth/               NestJS — JWT, API keys, workspaces
+│   ├── api-gateway/        NestJS — rate limiting, auth, reverse proxy
+│   ├── config-service/     NestJS — pipeline definitions, encrypted destination credentials
+│   ├── analytics/          NestJS — metrics, WebSocket live feed
+│   └── dashboard/          React  — full dashboard UI
 ├── packages/
-│   ├── nestjs-common/      ← Shared NestJS infrastructure (health, exception filter, correlation ID)
-│   ├── shared-types/       ← TypeScript types shared across all services
-│   ├── sdk-node/           ← Node.js client SDK
-│   └── ui-components/      ← Shared React components
-├── docker/                 ← Docker Compose, Dockerfiles, init scripts
+│   ├── shared-types/       TypeScript interfaces shared across services
+│   └── nestjs-common/      Shared NestJS modules (health, logging, RabbitMQ, cache keys)
+├── docker/                 Docker Compose, Dockerfiles, init scripts
 └── docs/
-    └── adr/                ← Architecture Decision Records — read these before proposing changes
+    └── adr/                Architecture Decision Records — read before proposing changes
 ```
 
-Read the ADRs before proposing architectural changes. They document why specific decisions were made (RabbitMQ over Kafka, two Redis instances, Go for delivery, Prisma over TypeORM, schema-per-service isolation, etc.).
+Read the ADRs before proposing architectural changes. They document why specific decisions were made (RabbitMQ over Kafka, two Redis instances, Go for delivery, schema-per-service isolation, etc.).
 
 ---
 
@@ -165,130 +126,100 @@ Read the ADRs before proposing architectural changes. They document why specific
 
 ### TypeScript (all NestJS services)
 
-- Strict mode enforced — `strict: true` in every service tsconfig, no `any`
-- All function parameters and return types must be explicitly typed
-- `const` by default; `let` only when mutation is required
-- `unknown` over `any` — narrow the type before using it
+- Strict mode — `strict: true` in every service tsconfig. No `any`, use `unknown` and narrow it.
+- No `console.log` in production code — inject `PinoLogger` from `nestjs-pino` in services
 - No commented-out code committed to the repo
-- No `console.log` — use the injected `PinoLogger` or the NestJS `Logger`
 
 ### Shared NestJS infrastructure
 
-Every NestJS service imports its common infrastructure from `@flowmesh/nestjs-common`. **Never copy these files into a service:**
+Every NestJS service imports common infrastructure from `@flowmesh/nestjs-common`. Never copy these files into a service — always import from the package:
 
-- `HttpExceptionFilter` — global exception handler, consistent error envelope
-- `CorrelationIdMiddleware` — reads/generates `x-correlation-id` on every request
-- `HealthModule` / `HealthController` — `GET /health` returning `{ status: 'ok' }`
+- `HttpExceptionFilter` — global exception handler
+- `CorrelationIdMiddleware` — reads/generates `x-correlation-id`
+- `HealthModule` — `GET /health`
+- `CacheKeyModule` — namespaced Redis key builder
+- `RabbitMqModule` — RabbitMQ connection with reconnect
 
-```ts
-// Correct
-import { HttpExceptionFilter, HealthModule, CorrelationIdMiddleware } from '@flowmesh/nestjs-common'
-
-// Wrong — never copy these files locally
-import { HttpExceptionFilter } from './common/filters/http-exception.filter'
-```
-
-If you change `nestjs-common`, rebuild it before starting a service:
+If you change `nestjs-common`, rebuild it before starting dependent services:
 ```bash
 pnpm --filter @flowmesh/nestjs-common build
 ```
 
-### NestJS patterns
-
-- One module per domain concern
-- Services hold business logic; controllers hold only HTTP handling and input mapping
-- Use Prisma for all database access — no raw SQL unless a Prisma limitation forces it
-- Parameterized queries only — never string concatenation for SQL
-- Every new service needs `GET /health` returning `{ status: 'ok' }`
-- All services bind to `0.0.0.0` — never `localhost` (breaks Docker networking)
-- Port is always read from `ConfigService`, never `process.env.PORT` directly in `main.ts`
-
 ### Go (delivery service)
 
 - Format with `gofmt` before committing
-- Follow standard Go naming conventions — exported names are PascalCase, unexported are camelCase
 - Wrap errors with context: `fmt.Errorf("delivering to slack: %w", err)`
-- Handle errors explicitly — never `_` discard an error from a meaningful operation
+- Never discard errors with `_` from meaningful operations
 - Use goroutines for concurrent destination delivery — never sequential blocking calls
 
 ### Database migrations (Prisma)
 
-**Never run `prisma migrate dev` without `--create-only`.** It auto-applies without review.
+Never run `prisma migrate dev` without `--create-only` — it auto-applies without review.
 
-The correct workflow:
 ```bash
-# 1. Generate the SQL file without running it
+# 1. Generate the SQL file only (does NOT run it)
 pnpm --filter @flowmesh/<service> prisma:migrate:create
 
-# 2. Review the generated .sql file — check for unexpected drops or data-loss operations
+# 2. Review the generated .sql file
 
 # 3. Apply reviewed migrations
 make <service>-migrate
 ```
 
-Migrations are append-only — never edit a migration file after it has been applied anywhere.
+Migrations are append-only — never edit a file after it has been applied anywhere.
 
 ### Testing
 
-- Unit tests colocated with source: `src/module/module.service.spec.ts`
-- Integration tests: `src/module/module.integration.spec.ts`
-- **Coverage threshold: 80% minimum on statements, branches, and functions.** CI blocks the PR if any metric falls below this. Check before pushing: `make test-coverage`
-- Do not mock the database or RabbitMQ in integration tests — use real infrastructure via test containers
+- Coverage threshold: **80% minimum** on statements, branches, and functions. CI blocks PRs that fall below this.
+- Unit tests are colocated with source: `src/module.service.spec.ts`
+- Integration tests use real infrastructure — no mocks for Postgres, RabbitMQ, or Redis
 - Never share state between tests — each test sets up and tears down its own data
 
-Excluded from coverage (do not add `.spec.ts` files for these):
-- `src/main.ts`
-- `**/*.module.ts`
-- `**/migrations/**`
-- `**/generated/**` (Prisma generated client)
-
 ---
 
-## Submitting a Pull Request
+## Pull Request Guidelines
 
-1. Fork the repo and create a branch off `main`:
-   - `feat/your-feature-name`
-   - `fix/what-you-are-fixing`
+### Branch naming
 
-2. Make your changes following the standards above.
+```
+feat/<short-description>    # new feature
+fix/<short-description>     # bug fix
+docs/<short-description>    # documentation only
+chore/<short-description>   # tooling, dependencies
+```
 
-3. Run tests — both must pass:
-   ```bash
-   make test
-   make test-integration   # if you changed a service
-   ```
+### Commit messages — Conventional Commits (enforced by pre-commit hook)
 
-4. Commit using [Conventional Commits](https://www.conventionalcommits.org/). **Scope is required and enforced by a pre-commit hook:**
+```
+<type>(<scope>): <lowercase summary>
+```
 
-   ```
-   feat(ingestion): add retry header on 429 responses
-   fix(pipeline): handle missing transform config gracefully
-   test(config): add unit tests for pipeline validator
-   docs(docs): add readme for ingestion service
-   ```
+Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`
 
-   Valid scopes: `ingestion`, `pipeline`, `delivery`, `auth`, `analytics`, `alert`, `config`, `gateway`, `shared-common`, `shared-types`, `docker`, `makefile`, `prisma`, `ci`, `deps`, `docs`
+Scopes: `ingestion`, `pipeline`, `delivery`, `auth`, `analytics`, `alert`, `config`, `gateway`, `dashboard`, `shared-types`, `nestjs-common`, `docker`, `makefile`, `ci`
 
-   Subject must be lowercase. Header max length is 100 characters. The hook will reject commits that do not follow this format — this is intentional.
+Examples:
+```
+feat(delivery): add slack destination driver
+fix(ingestion): idempotency key not written when eventId is auto-generated
+docs(docs): add readme for ingestion service
+test(pipeline): add coverage for enrich step with nested properties
+```
 
-5. Open a PR against `main` with a description of what changed and why.
+### Before opening a PR
 
-6. Link related issues: `Closes #123`
-
-PRs are reviewed within a few days. For large changes, expect a discussion before approval.
-
----
-
-## Architecture Decision Records
-
-Every significant architectural decision is documented in `docs/adr/`. Read these before proposing changes to service boundaries, data flow, technology choices, or cross-service patterns.
-
-If your contribution requires a new architectural decision, write a draft ADR and include it in your PR. ADRs are append-only — never rewrite a past one, write a new one that supersedes it.
+- [ ] `make test` passes
+- [ ] `make test-integration` passes (if you changed a service)
+- [ ] Coverage stays above 80% on modified services
+- [ ] No `any` types in TypeScript
+- [ ] No hardcoded secrets, URLs, or credentials
+- [ ] New env vars added to `.env.example` with a comment explaining each one
+- [ ] New destination drivers include tests for happy path and all error cases
 
 ---
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/syedarifiqbal/flowmesh/discussions) for questions, ideas, and design conversations.
+Open a [GitHub Discussion](https://github.com/syedarifiqbal/flowmesh/discussions) for questions and design conversations.
 
 For bugs or concrete feature requests, open an [issue](https://github.com/syedarifiqbal/flowmesh/issues).

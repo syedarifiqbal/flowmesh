@@ -55,7 +55,7 @@ describe('FanoutService', () => {
 
     const service = new FanoutService(conn)
     await service.onModuleInit()
-    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', makeEvent())
+    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', 'My Pipeline', makeEvent())
 
     expect(channel.publish).toHaveBeenCalledOnce()
     const [exchange, routingKey, , options] = channel.publish.mock.calls[0]
@@ -72,7 +72,7 @@ describe('FanoutService', () => {
 
     const service = new FanoutService(conn)
     await service.onModuleInit()
-    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', event)
+    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', 'My Pipeline', event)
 
     const [, , buffer] = channel.publish.mock.calls[0]
     const body = JSON.parse((buffer as Buffer).toString()) as {
@@ -91,8 +91,8 @@ describe('FanoutService', () => {
 
     const service = new FanoutService(conn)
     await service.onModuleInit()
-    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', makeEvent())
-    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', makeEvent())
+    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', 'My Pipeline', makeEvent())
+    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', 'My Pipeline', makeEvent())
 
     const id1 = JSON.parse((channel.publish.mock.calls[0][2] as Buffer).toString()) as { meta: { messageId: string } }
     const id2 = JSON.parse((channel.publish.mock.calls[1][2] as Buffer).toString()) as { meta: { messageId: string } }
@@ -105,8 +105,8 @@ describe('FanoutService', () => {
 
     const service = new FanoutService(conn)
     await service.onModuleInit()
-    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', makeEvent())
-    await service.publishToDestination('exec-1', 'dest-2', 'ws-1', makeEvent())
+    await service.publishToDestination('exec-1', 'dest-1', 'ws-1', 'My Pipeline', makeEvent())
+    await service.publishToDestination('exec-1', 'dest-2', 'ws-1', 'My Pipeline', makeEvent())
 
     const id1 = JSON.parse((channel.publish.mock.calls[0][2] as Buffer).toString()) as { meta: { messageId: string } }
     const id2 = JSON.parse((channel.publish.mock.calls[1][2] as Buffer).toString()) as { meta: { messageId: string } }
@@ -121,7 +121,7 @@ describe('FanoutService', () => {
     const service = new FanoutService(conn)
     await service.onModuleInit()
 
-    await expect(service.publishToDestination('exec-1', 'dest-1', 'ws-1', makeEvent())).rejects.toThrow('broker nack')
+    await expect(service.publishToDestination('exec-1', 'dest-1', 'ws-1', 'My Pipeline', makeEvent())).rejects.toThrow('broker nack')
   })
 
   it('closes channel gracefully on destroy', async () => {
