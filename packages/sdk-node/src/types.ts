@@ -48,6 +48,21 @@ export interface IdentifyResult {
   status: 'created' | 'updated'
 }
 
+export interface AliasInput {
+  userId: string
+  anonymousId: string
+  source: string
+  version: string
+  eventId?: string
+  timestamp?: string
+}
+
+export interface AliasResult {
+  userId: string
+  anonymousId: string
+  status: 'created' | 'exists'
+}
+
 export interface FlowMeshError extends Error {
   status?: number
 }

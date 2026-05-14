@@ -8,6 +8,7 @@ const mockService = {
   ingest: vi.fn(),
   ingestBatch: vi.fn(),
   identify: vi.fn(),
+  alias: vi.fn(),
   findAll: vi.fn(),
   getThroughput: vi.fn(),
 }
@@ -133,6 +134,40 @@ describe('IngestionController', () => {
 
       expect(mockService.identify).toHaveBeenCalledWith(
         expect.objectContaining({ correlationId: bodyCorrelationId }),
+        WORKSPACE_ID,
+      )
+    })
+  })
+
+  describe('POST /events/alias', () => {
+    const makeAlias = () => ({
+      userId: 'user_123',
+      anonymousId: 'anon_abc',
+      source: 'demo-store',
+      version: '1.0',
+    })
+
+    it('returns 202 with userId, anonymousId and created status', async () => {
+      mockService.alias.mockResolvedValue({ userId: 'user_123', anonymousId: 'anon_abc', status: 'created' })
+
+      const result = await controller.alias(WORKSPACE_ID, HEADER_CORRELATION_ID, makeAlias() as any)
+      expect(result).toEqual({ userId: 'user_123', anonymousId: 'anon_abc', status: 'created' })
+    })
+
+    it('returns exists status when alias already recorded', async () => {
+      mockService.alias.mockResolvedValue({ userId: 'user_123', anonymousId: 'anon_abc', status: 'exists' })
+
+      const result = await controller.alias(WORKSPACE_ID, HEADER_CORRELATION_ID, makeAlias() as any)
+      expect(result.status).toBe('exists')
+    })
+
+    it('uses header correlationId when body does not include one', async () => {
+      mockService.alias.mockResolvedValue({ userId: 'user_123', anonymousId: 'anon_abc', status: 'created' })
+
+      await controller.alias(WORKSPACE_ID, HEADER_CORRELATION_ID, makeAlias() as any)
+
+      expect(mockService.alias).toHaveBeenCalledWith(
+        expect.objectContaining({ correlationId: HEADER_CORRELATION_ID }),
         WORKSPACE_ID,
       )
     })

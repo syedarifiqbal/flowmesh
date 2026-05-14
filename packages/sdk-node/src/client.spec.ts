@@ -186,6 +186,76 @@ describe('FlowMesh', () => {
     })
   })
 
+  describe('alias', () => {
+    const VALID_ALIAS = {
+      userId: 'user_123',
+      anonymousId: 'anon_abc',
+      source: 'demo-store',
+      version: '1.0',
+    }
+
+    beforeEach(() => {
+      vi.stubGlobal('fetch', makeFetch(202, { userId: 'user_123', anonymousId: 'anon_abc', status: 'created' }))
+    })
+
+    it('posts to /ingest/events/alias with api key header', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test', host: 'http://localhost:3000' })
+      const result = await client.alias(VALID_ALIAS)
+
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/ingest/events/alias',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'x-api-key': 'fm_test' }),
+        }),
+      )
+      expect(result).toEqual({ userId: 'user_123', anonymousId: 'anon_abc', status: 'created' })
+    })
+
+    it('returns exists status when alias already recorded', async () => {
+      vi.stubGlobal('fetch', makeFetch(202, { userId: 'user_123', anonymousId: 'anon_abc', status: 'exists' }))
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      const result = await client.alias(VALID_ALIAS)
+      expect(result.status).toBe('exists')
+    })
+
+    it('throws when userId is missing', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      await expect(client.alias({ ...VALID_ALIAS, userId: '' })).rejects.toThrow('userId is required')
+    })
+
+    it('throws when anonymousId is missing', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      await expect(client.alias({ ...VALID_ALIAS, anonymousId: '' })).rejects.toThrow('anonymousId is required')
+    })
+
+    it('throws when source is missing', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      await expect(client.alias({ ...VALID_ALIAS, source: '' })).rejects.toThrow('source is required')
+    })
+
+    it('retries on 500 and succeeds', async () => {
+      let calls = 0
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => {
+        calls++
+        if (calls < 2) return Promise.resolve({ status: 500, json: () => Promise.resolve({}) })
+        return Promise.resolve({ status: 202, json: () => Promise.resolve({ userId: 'user_123', anonymousId: 'anon_abc', status: 'created' }) })
+      }))
+
+      const client = new FlowMesh({ apiKey: 'fm_test', maxRetries: 3 })
+      const result = await client.alias(VALID_ALIAS)
+      expect(calls).toBe(2)
+      expect(result.status).toBe('created')
+    })
+
+    it('throws immediately on 401 without retrying', async () => {
+      vi.stubGlobal('fetch', makeFetch(401, {}))
+      const client = new FlowMesh({ apiKey: 'fm_test', maxRetries: 3 })
+      await expect(client.alias(VALID_ALIAS)).rejects.toThrow('status 401')
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('batch', () => {
     beforeEach(() => {
       vi.stubGlobal('fetch', makeFetch(202, { accepted: 2, duplicates: 0, results: [] }))

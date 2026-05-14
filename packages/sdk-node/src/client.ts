@@ -1,5 +1,5 @@
 import { withRetry } from './retry.js'
-import type { FlowMeshOptions, TrackInput, TrackResult, BatchResult, IdentifyInput, IdentifyResult } from './types.js'
+import type { FlowMeshOptions, TrackInput, TrackResult, BatchResult, IdentifyInput, IdentifyResult, AliasInput, AliasResult } from './types.js'
 
 const DEFAULT_HOST = 'http://localhost:3000'
 const DEFAULT_MAX_RETRIES = 3
@@ -37,6 +37,19 @@ export class FlowMesh {
     return withRetry(async () => {
       const res = await this.post('/ingest/events/identify', input)
       const body = await res.json() as IdentifyResult
+      return { status: res.status, body }
+    }, this.maxRetries)
+  }
+
+  async alias(input: AliasInput): Promise<AliasResult> {
+    if (!input.userId) throw new Error('FlowMesh: userId is required for alias')
+    if (!input.anonymousId) throw new Error('FlowMesh: anonymousId is required for alias')
+    if (!input.source) throw new Error('FlowMesh: source is required')
+    if (!input.version) throw new Error('FlowMesh: version is required')
+
+    return withRetry(async () => {
+      const res = await this.post('/ingest/events/alias', input)
+      const body = await res.json() as AliasResult
       return { status: res.status, body }
     }, this.maxRetries)
   }
