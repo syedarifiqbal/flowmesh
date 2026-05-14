@@ -7,6 +7,7 @@ import { RabbitMQService } from '../rabbitmq/rabbitmq.service'
 import { RedisService } from '../redis/redis.service'
 import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
+import { IdentifyDto } from './dto/identify.dto'
 import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
 const mockLogger = {
@@ -30,7 +31,11 @@ const WORKSPACE_ID = randomUUID()
 
 describe('IngestionService', () => {
   let service: IngestionService
-  let prisma: { event: { create: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> }; $queryRaw: ReturnType<typeof vi.fn> }
+  let prisma: {
+    event: { create: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> }
+    userTrait: { findUnique: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> }
+    $queryRaw: ReturnType<typeof vi.fn>
+  }
   let rabbitmq: { publish: ReturnType<typeof vi.fn> }
   let redis: {
     isEventProcessed: ReturnType<typeof vi.fn>
@@ -41,6 +46,10 @@ describe('IngestionService', () => {
   beforeEach(() => {
     prisma = {
       event: { create: vi.fn().mockResolvedValue({}), count: vi.fn(), findMany: vi.fn() },
+      userTrait: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        upsert: vi.fn().mockResolvedValue({}),
+      },
       $queryRaw: vi.fn(),
     }
     rabbitmq = { publish: vi.fn().mockResolvedValue(undefined) }
@@ -153,6 +162,69 @@ describe('IngestionService', () => {
       const results = await service.ingestBatch(events, WORKSPACE_ID)
       const statuses = results.map((r) => r.status)
       expect(statuses).toEqual(['accepted', 'duplicate', 'accepted'])
+    })
+  })
+
+  describe('identify', () => {
+    const makeIdentify = (overrides: Partial<IdentifyDto> = {}): IdentifyDto & { correlationId: string } => ({
+      userId: 'user_123',
+      source: 'demo-store',
+      version: '1.0',
+      correlationId: randomUUID(),
+      traits: { name: 'Arif', email: 'arif@example.com' },
+      ...overrides,
+    })
+
+    it('returns created status when user does not exist yet', async () => {
+      prisma.userTrait.findUnique.mockResolvedValue(null)
+      const result = await service.identify(makeIdentify(), WORKSPACE_ID)
+      expect(result).toEqual({ userId: 'user_123', status: 'created' })
+    })
+
+    it('returns updated status when user traits already exist', async () => {
+      prisma.userTrait.findUnique.mockResolvedValue({ id: randomUUID() })
+      const result = await service.identify(makeIdentify(), WORKSPACE_ID)
+      expect(result).toEqual({ userId: 'user_123', status: 'updated' })
+    })
+
+    it('upserts user traits in the database', async () => {
+      const identify = makeIdentify()
+      await service.identify(identify, WORKSPACE_ID)
+      expect(prisma.userTrait.upsert).toHaveBeenCalledOnce()
+      const call = prisma.userTrait.upsert.mock.calls[0][0]
+      expect(call.where).toEqual({ workspaceId_userId: { workspaceId: WORKSPACE_ID, userId: 'user_123' } })
+      expect(call.create.traits).toEqual(identify.traits)
+      expect(call.update.traits).toEqual(identify.traits)
+    })
+
+    it('publishes user.identified event to RabbitMQ pipeline', async () => {
+      const identify = makeIdentify()
+      await service.identify(identify, WORKSPACE_ID)
+      expect(rabbitmq.publish).toHaveBeenCalledOnce()
+      const message = rabbitmq.publish.mock.calls[0][0]
+      expect(message.payload.event).toBe('user.identified')
+      expect(message.payload.userId).toBe('user_123')
+      expect(message.meta.workspaceId).toBe(WORKSPACE_ID)
+    })
+
+    it('publishes to live event feed with event name user.identified', async () => {
+      await service.identify(makeIdentify(), WORKSPACE_ID)
+      expect(pubsub.publishEvent).toHaveBeenCalledOnce()
+      const call = pubsub.publishEvent.mock.calls[0][0]
+      expect(call.eventName).toBe('user.identified')
+      expect(call.userId).toBe('user_123')
+    })
+
+    it('stores anonymousId when provided', async () => {
+      await service.identify(makeIdentify({ anonymousId: 'anon_xyz' }), WORKSPACE_ID)
+      const call = prisma.userTrait.upsert.mock.calls[0][0]
+      expect(call.create.anonymousId).toBe('anon_xyz')
+    })
+
+    it('stores empty traits object when traits are omitted', async () => {
+      await service.identify(makeIdentify({ traits: undefined }), WORKSPACE_ID)
+      const call = prisma.userTrait.upsert.mock.calls[0][0]
+      expect(call.create.traits).toEqual({})
     })
   })
 

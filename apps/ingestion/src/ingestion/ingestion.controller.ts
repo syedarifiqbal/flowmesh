@@ -3,6 +3,7 @@ import { WorkspaceId, CORRELATION_ID_HEADER } from '@flowmesh/nestjs-common'
 import { IngestionService } from './ingestion.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { IngestBatchDto } from './dto/ingest-batch.dto'
+import { IdentifyDto } from './dto/identify.dto'
 import { QueryEventsDto } from './dto/query-events.dto'
 import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
@@ -37,6 +38,17 @@ export class IngestionController {
     // x-correlation-id header that the API gateway always sets.
     const correlationId = dto.correlationId ?? headerCorrelationId
     return this.ingestionService.ingest({ ...dto, correlationId }, workspaceId)
+  }
+
+  @Post('identify')
+  @HttpCode(202)
+  async identify(
+    @WorkspaceId() workspaceId: string,
+    @Headers(CORRELATION_ID_HEADER) headerCorrelationId: string,
+    @Body() dto: IdentifyDto,
+  ) {
+    const correlationId = dto.correlationId ?? headerCorrelationId
+    return this.ingestionService.identify({ ...dto, correlationId }, workspaceId)
   }
 
   @Post('batch')

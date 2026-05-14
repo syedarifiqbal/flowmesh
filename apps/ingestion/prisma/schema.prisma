@@ -29,3 +29,19 @@ model Event {
   @@index([workspaceId, eventName])
   @@map("events")
 }
+
+model UserTrait {
+  id          String   @id @default(uuid())
+  workspaceId String   @map("workspace_id")
+  userId      String   @map("user_id")
+  anonymousId String?  @map("anonymous_id")
+  traits      Json     @default("{}")
+  source      String
+  version     String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId, userId])
+  @@map("user_traits")
+}

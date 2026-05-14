@@ -7,6 +7,7 @@ import { IngestionService } from './ingestion.service'
 const mockService = {
   ingest: vi.fn(),
   ingestBatch: vi.fn(),
+  identify: vi.fn(),
   findAll: vi.fn(),
   getThroughput: vi.fn(),
 }
@@ -84,6 +85,56 @@ describe('IngestionController', () => {
       expect(result.accepted).toBe(2)
       expect(result.duplicates).toBe(1)
       expect(result.results).toHaveLength(3)
+    })
+  })
+
+  describe('POST /events/identify', () => {
+    const makeIdentify = () => ({
+      userId: 'user_123',
+      source: 'demo-store',
+      version: '1.0',
+      traits: { name: 'Arif', email: 'arif@example.com' },
+    })
+
+    it('returns 202 with userId and created status for a new user', async () => {
+      mockService.identify.mockResolvedValue({ userId: 'user_123', status: 'created' })
+
+      const result = await controller.identify(WORKSPACE_ID, HEADER_CORRELATION_ID, makeIdentify() as any)
+      expect(result).toEqual({ userId: 'user_123', status: 'created' })
+    })
+
+    it('returns updated status when user traits already exist', async () => {
+      mockService.identify.mockResolvedValue({ userId: 'user_123', status: 'updated' })
+
+      const result = await controller.identify(WORKSPACE_ID, HEADER_CORRELATION_ID, makeIdentify() as any)
+      expect(result.status).toBe('updated')
+    })
+
+    it('uses header correlationId when body does not include one', async () => {
+      mockService.identify.mockResolvedValue({ userId: 'user_123', status: 'created' })
+
+      await controller.identify(WORKSPACE_ID, HEADER_CORRELATION_ID, makeIdentify() as any)
+
+      expect(mockService.identify).toHaveBeenCalledWith(
+        expect.objectContaining({ correlationId: HEADER_CORRELATION_ID }),
+        WORKSPACE_ID,
+      )
+    })
+
+    it('prefers body correlationId over header when both provided', async () => {
+      const bodyCorrelationId = randomUUID()
+      mockService.identify.mockResolvedValue({ userId: 'user_123', status: 'created' })
+
+      await controller.identify(
+        WORKSPACE_ID,
+        HEADER_CORRELATION_ID,
+        { ...makeIdentify(), correlationId: bodyCorrelationId } as any,
+      )
+
+      expect(mockService.identify).toHaveBeenCalledWith(
+        expect.objectContaining({ correlationId: bodyCorrelationId }),
+        WORKSPACE_ID,
+      )
     })
   })
 
