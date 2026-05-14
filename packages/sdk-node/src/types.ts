@@ -63,6 +63,36 @@ export interface AliasResult {
   status: 'created' | 'exists'
 }
 
+export interface PageInput {
+  name: string
+  url?: string
+  source: string
+  version: string
+  userId?: string
+  anonymousId?: string
+  sessionId?: string
+  eventId?: string
+  timestamp?: string
+  context?: Record<string, unknown>
+}
+
+export interface GroupInput {
+  groupId: string
+  userId: string
+  source: string
+  version: string
+  traits?: Record<string, unknown>
+  eventId?: string
+  timestamp?: string
+  context?: Record<string, unknown>
+}
+
+export interface GroupResult {
+  groupId: string
+  userId: string
+  status: 'created' | 'updated'
+}
+
 export interface FlowMeshError extends Error {
   status?: number
 }

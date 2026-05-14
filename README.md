@@ -51,6 +51,8 @@ Clone the repo, run one command, and have a working event pipeline running local
 | Event ingestion API (REST + SDK) | ✅ Available |
 | `identify()` — store user traits, link userId to profile | ✅ Available |
 | `alias()` — link anonymous visitor to known user at login | ✅ Available |
+| `page()` — record page views, auto-sets event to `page.viewed` | ✅ Available |
+| `group()` — associate a user with an organisation or account | ✅ Available |
 | Schema validation and auto-generated correlation ID tracing | ✅ Available |
 | Idempotent event deduplication | ✅ Available |
 | RabbitMQ-backed event queue | ✅ Available |
@@ -218,14 +220,16 @@ curl -X POST http://localhost:3000/ingest/events/batch \
 
 ## Event Schema
 
-FlowMesh exposes three ingestion endpoints:
+FlowMesh exposes six ingestion endpoints:
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /ingest/events` | Track a named event — page views, clicks, orders, anything |
+| `POST /ingest/events` | Track a named event — clicks, orders, signups, anything |
 | `POST /ingest/events/identify` | Store traits for a known user (`name`, `email`, `plan`, etc.) |
 | `POST /ingest/events/alias` | Link an anonymous visitor ID to a known userId at login time |
-| `POST /ingest/events/batch` | Send up to 100 events in a single request |
+| `POST /ingest/events/page` | Record a page view — auto-sets event to `page.viewed` |
+| `POST /ingest/events/group` | Associate a user with an organisation or account |
+| `POST /ingest/events/batch` | Send up to 100 track events in a single request |
 
 Every event sent to FlowMesh follows this structure:
 

@@ -5,6 +5,8 @@ import { IngestEventDto } from './dto/ingest-event.dto'
 import { IngestBatchDto } from './dto/ingest-batch.dto'
 import { IdentifyDto } from './dto/identify.dto'
 import { AliasDto } from './dto/alias.dto'
+import { PageDto } from './dto/page.dto'
+import { GroupDto } from './dto/group.dto'
 import { QueryEventsDto } from './dto/query-events.dto'
 import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
@@ -61,6 +63,28 @@ export class IngestionController {
   ) {
     const correlationId = dto.correlationId ?? headerCorrelationId
     return this.ingestionService.alias({ ...dto, correlationId }, workspaceId)
+  }
+
+  @Post('page')
+  @HttpCode(202)
+  async page(
+    @WorkspaceId() workspaceId: string,
+    @Headers(CORRELATION_ID_HEADER) headerCorrelationId: string,
+    @Body() dto: PageDto,
+  ) {
+    const correlationId = dto.correlationId ?? headerCorrelationId
+    return this.ingestionService.page({ ...dto, correlationId }, workspaceId)
+  }
+
+  @Post('group')
+  @HttpCode(202)
+  async group(
+    @WorkspaceId() workspaceId: string,
+    @Headers(CORRELATION_ID_HEADER) headerCorrelationId: string,
+    @Body() dto: GroupDto,
+  ) {
+    const correlationId = dto.correlationId ?? headerCorrelationId
+    return this.ingestionService.group({ ...dto, correlationId }, workspaceId)
   }
 
   @Post('batch')
