@@ -1,5 +1,5 @@
 import { withRetry } from './retry.js'
-import type { FlowMeshOptions, TrackInput, TrackResult, BatchResult, IdentifyInput, IdentifyResult, AliasInput, AliasResult } from './types.js'
+import type { FlowMeshOptions, TrackInput, TrackResult, BatchResult, IdentifyInput, IdentifyResult, AliasInput, AliasResult, PageInput, GroupInput, GroupResult } from './types.js'
 
 const DEFAULT_HOST = 'http://localhost:3000'
 const DEFAULT_MAX_RETRIES = 3
@@ -50,6 +50,32 @@ export class FlowMesh {
     return withRetry(async () => {
       const res = await this.post('/ingest/events/alias', input)
       const body = await res.json() as AliasResult
+      return { status: res.status, body }
+    }, this.maxRetries)
+  }
+
+  async page(input: PageInput): Promise<TrackResult> {
+    if (!input.name) throw new Error('FlowMesh: name is required for page')
+    if (!input.source) throw new Error('FlowMesh: source is required')
+    if (!input.version) throw new Error('FlowMesh: version is required')
+    if (!input.userId && !input.anonymousId) throw new Error('FlowMesh: userId or anonymousId is required')
+
+    return withRetry(async () => {
+      const res = await this.post('/ingest/events/page', input)
+      const body = await res.json() as TrackResult
+      return { status: res.status, body }
+    }, this.maxRetries)
+  }
+
+  async group(input: GroupInput): Promise<GroupResult> {
+    if (!input.groupId) throw new Error('FlowMesh: groupId is required for group')
+    if (!input.userId) throw new Error('FlowMesh: userId is required for group')
+    if (!input.source) throw new Error('FlowMesh: source is required')
+    if (!input.version) throw new Error('FlowMesh: version is required')
+
+    return withRetry(async () => {
+      const res = await this.post('/ingest/events/group', input)
+      const body = await res.json() as GroupResult
       return { status: res.status, body }
     }, this.maxRetries)
   }

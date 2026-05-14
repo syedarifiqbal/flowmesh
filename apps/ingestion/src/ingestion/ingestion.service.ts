@@ -9,6 +9,8 @@ import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { IdentifyDto } from './dto/identify.dto'
 import { AliasDto } from './dto/alias.dto'
+import { PageDto } from './dto/page.dto'
+import { GroupDto } from './dto/group.dto'
 import { QueryEventsDto } from './dto/query-events.dto'
 import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
@@ -37,6 +39,12 @@ export interface AliasResult {
   userId: string
   anonymousId: string
   status: 'created' | 'exists'
+}
+
+export interface GroupResult {
+  groupId: string
+  userId: string
+  status: 'created' | 'updated'
 }
 
 @Injectable()
@@ -118,46 +126,16 @@ export class IngestionService {
       },
     })
 
-    // Publish to pipeline queue
-    await this.rabbitmq.publish({
-      meta: {
-        messageId: randomUUID(),
-        correlationId: dto.correlationId,
-        timestamp: new Date().toISOString(),
-        source: 'ingestion',
-        version: '1.0',
-        workspaceId,
-      },
-      payload: {
-        eventId,
-        event: dto.event,
-        source: dto.source,
-        version: dto.version,
-        userId: dto.userId,
-        anonymousId: dto.anonymousId,
-        sessionId: dto.sessionId,
-        properties: dto.properties ?? {},
-        context: dto.context ?? {},
-        receivedAt: timestamp,
-      },
+    await this.publishToQueue(dto.correlationId, workspaceId, {
+      eventId, event: dto.event, source: dto.source, version: dto.version,
+      userId: dto.userId, anonymousId: dto.anonymousId, sessionId: dto.sessionId,
+      properties: dto.properties ?? {}, context: dto.context ?? {}, receivedAt: timestamp,
     })
 
     // Mark as processed after successful publish
     await this.redis.markEventProcessed(eventId)
 
-    // Publish to live event feed (fire-and-forget — never block ingestion for this)
-    this.pubsub.publishEvent({
-      id: eventId,
-      eventId,
-      eventName: dto.event,
-      source: dto.source,
-      userId: dto.userId ?? null,
-      anonymousId: dto.anonymousId ?? null,
-      correlationId: dto.correlationId,
-      properties: dto.properties ?? {},
-      receivedAt: timestamp,
-      workspaceId,
-    }).catch((err) => this.logger.warn({ err }, 'live event publish failed — non-critical'))
+    this.publishToLiveFeed({ eventId, eventName: dto.event, source: dto.source, userId: dto.userId ?? null, anonymousId: dto.anonymousId ?? null, correlationId: dto.correlationId, properties: dto.properties ?? {}, receivedAt: timestamp, workspaceId })
 
     this.logger.info({ eventId, correlationId: dto.correlationId, workspaceId, event: dto.event }, 'event accepted')
 
@@ -188,41 +166,11 @@ export class IngestionService {
       })
     }
 
-    // Publish so pipelines can react to alias events (e.g. welcome sequence after signup)
-    await this.rabbitmq.publish({
-      meta: {
-        messageId: randomUUID(),
-        correlationId: dto.correlationId,
-        timestamp: new Date().toISOString(),
-        source: 'ingestion',
-        version: '1.0',
-        workspaceId,
-      },
-      payload: {
-        eventId,
-        event: 'user.aliased',
-        source: dto.source,
-        version: dto.version,
-        userId: dto.userId,
-        anonymousId: dto.anonymousId,
-        properties: { anonymousId: dto.anonymousId },
-        context: {},
-        receivedAt: timestamp,
-      },
+    await this.publishToQueue(dto.correlationId, workspaceId, {
+      eventId, event: 'user.aliased', source: dto.source, version: dto.version,
+      userId: dto.userId, anonymousId: dto.anonymousId, properties: { anonymousId: dto.anonymousId }, context: {}, receivedAt: timestamp,
     })
-
-    this.pubsub.publishEvent({
-      id: eventId,
-      eventId,
-      eventName: 'user.aliased',
-      source: dto.source,
-      userId: dto.userId,
-      anonymousId: dto.anonymousId,
-      correlationId: dto.correlationId,
-      properties: { anonymousId: dto.anonymousId },
-      receivedAt: timestamp,
-      workspaceId,
-    }).catch((err) => this.logger.warn({ err }, 'live event publish failed — non-critical'))
+    this.publishToLiveFeed({ eventId, eventName: 'user.aliased', source: dto.source, userId: dto.userId, anonymousId: dto.anonymousId, correlationId: dto.correlationId, properties: { anonymousId: dto.anonymousId }, receivedAt: timestamp, workspaceId })
 
     this.logger.info(
       { userId: dto.userId, anonymousId: dto.anonymousId, workspaceId, correlationId: dto.correlationId },
@@ -246,69 +194,103 @@ export class IngestionService {
     const eventId = dto.eventId ?? randomUUID()
     const timestamp = dto.timestamp ?? new Date().toISOString()
 
-    const existing = await this.prisma.userTrait.findUnique({
-      where: { workspaceId_userId: { workspaceId, userId: dto.userId } },
-      select: { id: true },
+    const status = await this.upsertTraits({
+      find: () => this.prisma.userTrait.findUnique({
+        where: { workspaceId_userId: { workspaceId, userId: dto.userId } },
+        select: { id: true },
+      }),
+      upsert: () => this.prisma.userTrait.upsert({
+        where: { workspaceId_userId: { workspaceId, userId: dto.userId } },
+        create: { workspaceId, userId: dto.userId, anonymousId: dto.anonymousId ?? null, traits: (dto.traits ?? {}) as object, source: dto.source, version: dto.version },
+        update: { anonymousId: dto.anonymousId ?? null, traits: (dto.traits ?? {}) as object, source: dto.source, version: dto.version },
+      }),
     })
 
-    await this.prisma.userTrait.upsert({
-      where: { workspaceId_userId: { workspaceId, userId: dto.userId } },
-      create: {
-        workspaceId,
-        userId: dto.userId,
-        anonymousId: dto.anonymousId ?? null,
-        traits: (dto.traits ?? {}) as object,
-        source: dto.source,
-        version: dto.version,
-      },
-      update: {
-        anonymousId: dto.anonymousId ?? null,
-        traits: (dto.traits ?? {}) as object,
-        source: dto.source,
-        version: dto.version,
-      },
+    await this.publishToQueue(dto.correlationId, workspaceId, {
+      eventId, event: 'user.identified', source: dto.source, version: dto.version,
+      userId: dto.userId, anonymousId: dto.anonymousId, properties: dto.traits ?? {}, context: dto.context ?? {}, receivedAt: timestamp,
     })
-
-    // Publish to pipeline so identify calls can trigger rules (e.g. welcome Slack message)
-    await this.rabbitmq.publish({
-      meta: {
-        messageId: randomUUID(),
-        correlationId: dto.correlationId,
-        timestamp: new Date().toISOString(),
-        source: 'ingestion',
-        version: '1.0',
-        workspaceId,
-      },
-      payload: {
-        eventId,
-        event: 'user.identified',
-        source: dto.source,
-        version: dto.version,
-        userId: dto.userId,
-        anonymousId: dto.anonymousId,
-        properties: dto.traits ?? {},
-        context: dto.context ?? {},
-        receivedAt: timestamp,
-      },
-    })
-
-    // Publish to live feed so the dashboard shows identify calls
-    this.pubsub.publishEvent({
-      id: eventId,
-      eventId,
-      eventName: 'user.identified',
-      source: dto.source,
-      userId: dto.userId,
-      anonymousId: dto.anonymousId ?? null,
-      correlationId: dto.correlationId,
-      properties: dto.traits ?? {},
-      receivedAt: timestamp,
-      workspaceId,
-    }).catch((err) => this.logger.warn({ err }, 'live event publish failed — non-critical'))
-
+    this.publishToLiveFeed({ eventId, eventName: 'user.identified', source: dto.source, userId: dto.userId, anonymousId: dto.anonymousId ?? null, correlationId: dto.correlationId, properties: dto.traits ?? {}, receivedAt: timestamp, workspaceId })
     this.logger.info({ userId: dto.userId, workspaceId, correlationId: dto.correlationId }, 'user identified')
+    return { userId: dto.userId, status }
+  }
 
-    return { userId: dto.userId, status: existing ? 'updated' : 'created' }
+  async page(
+    dto: PageDto & { correlationId: string },
+    workspaceId: string,
+  ): Promise<IngestResult> {
+    return this.ingest(
+      {
+        ...dto,
+        event: 'page.viewed',
+        properties: { name: dto.name, ...(dto.url ? { url: dto.url } : {}) },
+      },
+      workspaceId,
+    )
+  }
+
+  async group(
+    dto: GroupDto & { correlationId: string },
+    workspaceId: string,
+  ): Promise<GroupResult> {
+    const eventId = dto.eventId ?? randomUUID()
+    const timestamp = dto.timestamp ?? new Date().toISOString()
+
+    const status = await this.upsertTraits({
+      find: () => this.prisma.groupTrait.findUnique({
+        where: { workspaceId_groupId_userId: { workspaceId, groupId: dto.groupId, userId: dto.userId } },
+        select: { id: true },
+      }),
+      upsert: () => this.prisma.groupTrait.upsert({
+        where: { workspaceId_groupId_userId: { workspaceId, groupId: dto.groupId, userId: dto.userId } },
+        create: { workspaceId, groupId: dto.groupId, userId: dto.userId, traits: (dto.traits ?? {}) as object, source: dto.source, version: dto.version },
+        update: { traits: (dto.traits ?? {}) as object, source: dto.source, version: dto.version },
+      }),
+    })
+
+    await this.publishToQueue(dto.correlationId, workspaceId, {
+      eventId, event: 'group.identified', source: dto.source, version: dto.version,
+      userId: dto.userId, properties: { groupId: dto.groupId, ...(dto.traits ?? {}) }, context: dto.context ?? {}, receivedAt: timestamp,
+    })
+    this.publishToLiveFeed({ eventId, eventName: 'group.identified', source: dto.source, userId: dto.userId, anonymousId: null, correlationId: dto.correlationId, properties: { groupId: dto.groupId, ...(dto.traits ?? {}) }, receivedAt: timestamp, workspaceId })
+    this.logger.info({ groupId: dto.groupId, userId: dto.userId, workspaceId, correlationId: dto.correlationId }, 'group identified')
+    return { groupId: dto.groupId, userId: dto.userId, status }
+  }
+
+  // Shared helper — both identify() and group() follow the same find→upsert→status pattern
+  private async upsertTraits(ops: {
+    find: () => Promise<{ id: string } | null>
+    upsert: () => Promise<unknown>
+  }): Promise<'created' | 'updated'> {
+    const existing = await ops.find()
+    await ops.upsert()
+    return existing ? 'updated' : 'created'
+  }
+
+  // Shared helper — publish a payload to the pipeline exchange
+  private publishToQueue(
+    correlationId: string,
+    workspaceId: string,
+    payload: Record<string, unknown>,
+  ) {
+    return this.rabbitmq.publish({
+      meta: { messageId: randomUUID(), correlationId, timestamp: new Date().toISOString(), source: 'ingestion', version: '1.0', workspaceId },
+      payload,
+    })
+  }
+
+  // Shared helper — fire-and-forget publish to Redis pub/sub live feed
+  private publishToLiveFeed(event: {
+    eventId: string; eventName: string; source: string
+    userId?: string | null; anonymousId: string | null; correlationId: string
+    properties: Record<string, unknown>; receivedAt: string; workspaceId: string
+  }) {
+    this.pubsub.publishEvent({
+      id: event.eventId, eventId: event.eventId, eventName: event.eventName,
+      source: event.source, userId: event.userId ?? null, anonymousId: event.anonymousId,
+      correlationId: event.correlationId, properties: event.properties,
+      receivedAt: event.receivedAt, workspaceId: event.workspaceId,
+    }).catch((err) => this.logger.warn({ err }, 'live event publish failed — non-critical'))
   }
 
   async getThroughput(

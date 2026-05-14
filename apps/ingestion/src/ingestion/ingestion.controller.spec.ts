@@ -9,6 +9,8 @@ const mockService = {
   ingestBatch: vi.fn(),
   identify: vi.fn(),
   alias: vi.fn(),
+  page: vi.fn(),
+  group: vi.fn(),
   findAll: vi.fn(),
   getThroughput: vi.fn(),
 }
@@ -167,6 +169,70 @@ describe('IngestionController', () => {
       await controller.alias(WORKSPACE_ID, HEADER_CORRELATION_ID, makeAlias() as any)
 
       expect(mockService.alias).toHaveBeenCalledWith(
+        expect.objectContaining({ correlationId: HEADER_CORRELATION_ID }),
+        WORKSPACE_ID,
+      )
+    })
+  })
+
+  describe('POST /events/page', () => {
+    const makePage = () => ({
+      name: 'Home',
+      url: 'https://example.com/',
+      source: 'web',
+      version: '1.0',
+      userId: 'user_123',
+    })
+
+    it('returns 202 with eventId and accepted status', async () => {
+      const eventId = randomUUID()
+      mockService.page.mockResolvedValue({ eventId, status: 'accepted' })
+
+      const result = await controller.page(WORKSPACE_ID, HEADER_CORRELATION_ID, makePage() as any)
+      expect(result).toEqual({ eventId, status: 'accepted' })
+    })
+
+    it('uses header correlationId when body does not include one', async () => {
+      mockService.page.mockResolvedValue({ eventId: randomUUID(), status: 'accepted' })
+
+      await controller.page(WORKSPACE_ID, HEADER_CORRELATION_ID, makePage() as any)
+
+      expect(mockService.page).toHaveBeenCalledWith(
+        expect.objectContaining({ correlationId: HEADER_CORRELATION_ID }),
+        WORKSPACE_ID,
+      )
+    })
+  })
+
+  describe('POST /events/group', () => {
+    const makeGroup = () => ({
+      groupId: 'acme-corp',
+      userId: 'user_123',
+      source: 'demo-store',
+      version: '1.0',
+      traits: { name: 'Acme Corp', plan: 'enterprise' },
+    })
+
+    it('returns 202 with groupId, userId and created status', async () => {
+      mockService.group.mockResolvedValue({ groupId: 'acme-corp', userId: 'user_123', status: 'created' })
+
+      const result = await controller.group(WORKSPACE_ID, HEADER_CORRELATION_ID, makeGroup() as any)
+      expect(result).toEqual({ groupId: 'acme-corp', userId: 'user_123', status: 'created' })
+    })
+
+    it('returns updated status when group membership already exists', async () => {
+      mockService.group.mockResolvedValue({ groupId: 'acme-corp', userId: 'user_123', status: 'updated' })
+
+      const result = await controller.group(WORKSPACE_ID, HEADER_CORRELATION_ID, makeGroup() as any)
+      expect(result.status).toBe('updated')
+    })
+
+    it('uses header correlationId when body does not include one', async () => {
+      mockService.group.mockResolvedValue({ groupId: 'acme-corp', userId: 'user_123', status: 'created' })
+
+      await controller.group(WORKSPACE_ID, HEADER_CORRELATION_ID, makeGroup() as any)
+
+      expect(mockService.group).toHaveBeenCalledWith(
         expect.objectContaining({ correlationId: HEADER_CORRELATION_ID }),
         WORKSPACE_ID,
       )

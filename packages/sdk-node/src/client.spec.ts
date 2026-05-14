@@ -256,6 +256,121 @@ describe('FlowMesh', () => {
     })
   })
 
+  describe('page', () => {
+    const VALID_PAGE = { name: 'Home', url: 'https://example.com/', source: 'web', version: '1.0', userId: 'user_123' }
+
+    beforeEach(() => {
+      vi.stubGlobal('fetch', makeFetch(202, { status: 'accepted', eventId: 'evt-page-1' }))
+    })
+
+    it('posts to /ingest/events/page with api key header', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test', host: 'http://localhost:3000' })
+      const result = await client.page(VALID_PAGE)
+
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/ingest/events/page',
+        expect.objectContaining({ headers: expect.objectContaining({ 'x-api-key': 'fm_test' }) }),
+      )
+      expect(result).toEqual({ status: 'accepted', eventId: 'evt-page-1' })
+    })
+
+    it('throws when name is missing', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      await expect(client.page({ ...VALID_PAGE, name: '' })).rejects.toThrow('name is required')
+    })
+
+    it('throws when source is missing', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      await expect(client.page({ ...VALID_PAGE, source: '' })).rejects.toThrow('source is required')
+    })
+
+    it('throws when neither userId nor anonymousId provided', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      await expect(client.page({ ...VALID_PAGE, userId: undefined })).rejects.toThrow('userId or anonymousId is required')
+    })
+
+    it('retries on 500 and succeeds', async () => {
+      let calls = 0
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => {
+        calls++
+        if (calls < 2) return Promise.resolve({ status: 500, json: () => Promise.resolve({}) })
+        return Promise.resolve({ status: 202, json: () => Promise.resolve({ status: 'accepted', eventId: 'evt-1' }) })
+      }))
+      const client = new FlowMesh({ apiKey: 'fm_test', maxRetries: 3 })
+      const result = await client.page(VALID_PAGE)
+      expect(calls).toBe(2)
+      expect(result.status).toBe('accepted')
+    })
+
+    it('throws immediately on 4xx without retrying', async () => {
+      vi.stubGlobal('fetch', makeFetch(400, {}))
+      const client = new FlowMesh({ apiKey: 'fm_test', maxRetries: 3 })
+      await expect(client.page(VALID_PAGE)).rejects.toThrow('status 400')
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('group', () => {
+    const VALID_GROUP = { groupId: 'acme-corp', userId: 'user_123', source: 'server', version: '1.0', traits: { plan: 'enterprise' } }
+
+    beforeEach(() => {
+      vi.stubGlobal('fetch', makeFetch(202, { groupId: 'acme-corp', userId: 'user_123', status: 'created' }))
+    })
+
+    it('posts to /ingest/events/group with api key header', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test', host: 'http://localhost:3000' })
+      const result = await client.group(VALID_GROUP)
+
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/ingest/events/group',
+        expect.objectContaining({ headers: expect.objectContaining({ 'x-api-key': 'fm_test' }) }),
+      )
+      expect(result).toEqual({ groupId: 'acme-corp', userId: 'user_123', status: 'created' })
+    })
+
+    it('returns updated status when group membership already exists', async () => {
+      vi.stubGlobal('fetch', makeFetch(202, { groupId: 'acme-corp', userId: 'user_123', status: 'updated' }))
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      const result = await client.group(VALID_GROUP)
+      expect(result.status).toBe('updated')
+    })
+
+    it('throws when groupId is missing', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      await expect(client.group({ ...VALID_GROUP, groupId: '' })).rejects.toThrow('groupId is required')
+    })
+
+    it('throws when userId is missing', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      await expect(client.group({ ...VALID_GROUP, userId: '' })).rejects.toThrow('userId is required')
+    })
+
+    it('throws when source is missing', async () => {
+      const client = new FlowMesh({ apiKey: 'fm_test' })
+      await expect(client.group({ ...VALID_GROUP, source: '' })).rejects.toThrow('source is required')
+    })
+
+    it('retries on 500 and succeeds', async () => {
+      let calls = 0
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => {
+        calls++
+        if (calls < 2) return Promise.resolve({ status: 500, json: () => Promise.resolve({}) })
+        return Promise.resolve({ status: 202, json: () => Promise.resolve({ groupId: 'acme-corp', userId: 'user_123', status: 'created' }) })
+      }))
+      const client = new FlowMesh({ apiKey: 'fm_test', maxRetries: 3 })
+      const result = await client.group(VALID_GROUP)
+      expect(calls).toBe(2)
+      expect(result.status).toBe('created')
+    })
+
+    it('throws immediately on 4xx without retrying', async () => {
+      vi.stubGlobal('fetch', makeFetch(401, {}))
+      const client = new FlowMesh({ apiKey: 'fm_test', maxRetries: 3 })
+      await expect(client.group(VALID_GROUP)).rejects.toThrow('status 401')
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('batch', () => {
     beforeEach(() => {
       vi.stubGlobal('fetch', makeFetch(202, { accepted: 2, duplicates: 0, results: [] }))

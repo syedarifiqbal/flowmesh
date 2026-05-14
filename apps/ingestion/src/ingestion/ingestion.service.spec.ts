@@ -9,6 +9,8 @@ import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { IdentifyDto } from './dto/identify.dto'
 import { AliasDto } from './dto/alias.dto'
+import { PageDto } from './dto/page.dto'
+import { GroupDto } from './dto/group.dto'
 import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
 const mockLogger = {
@@ -36,6 +38,7 @@ describe('IngestionService', () => {
     event: { create: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> }
     userTrait: { findUnique: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> }
     aliasMap: { findUnique: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> }
+    groupTrait: { findUnique: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> }
     $queryRaw: ReturnType<typeof vi.fn>
   }
   let rabbitmq: { publish: ReturnType<typeof vi.fn> }
@@ -55,6 +58,10 @@ describe('IngestionService', () => {
       aliasMap: {
         findUnique: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockResolvedValue({}),
+      },
+      groupTrait: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        upsert: vi.fn().mockResolvedValue({}),
       },
       $queryRaw: vi.fn(),
     }
@@ -289,6 +296,109 @@ describe('IngestionService', () => {
       expect(call.eventName).toBe('user.aliased')
       expect(call.userId).toBe('user_123')
       expect(call.anonymousId).toBe('anon_abc')
+    })
+  })
+
+  describe('page', () => {
+    const makePage = (overrides: Partial<PageDto> = {}): PageDto & { correlationId: string } => ({
+      name: 'Home',
+      url: 'https://example.com/',
+      source: 'web',
+      version: '1.0',
+      userId: 'user_123',
+      correlationId: randomUUID(),
+      ...overrides,
+    })
+
+    it('returns accepted status for a valid page call', async () => {
+      const result = await service.page(makePage(), WORKSPACE_ID)
+      expect(result.status).toBe('accepted')
+    })
+
+    it('stores event name as page.viewed', async () => {
+      await service.page(makePage(), WORKSPACE_ID)
+      const call = prisma.event.create.mock.calls[0][0]
+      expect(call.data.eventName).toBe('page.viewed')
+    })
+
+    it('stores name and url in properties', async () => {
+      await service.page(makePage({ name: 'Checkout', url: 'https://example.com/checkout' }), WORKSPACE_ID)
+      const call = prisma.event.create.mock.calls[0][0]
+      expect(call.data.properties).toMatchObject({ name: 'Checkout', url: 'https://example.com/checkout' })
+    })
+
+    it('stores name in properties when url is omitted', async () => {
+      await service.page(makePage({ url: undefined }), WORKSPACE_ID)
+      const call = prisma.event.create.mock.calls[0][0]
+      expect(call.data.properties).toEqual({ name: 'Home' })
+    })
+
+    it('publishes page.viewed to RabbitMQ pipeline', async () => {
+      await service.page(makePage(), WORKSPACE_ID)
+      const message = rabbitmq.publish.mock.calls[0][0]
+      expect(message.payload.event).toBe('page.viewed')
+    })
+
+    it('returns duplicate when same eventId submitted twice', async () => {
+      redis.isEventProcessed.mockResolvedValue(true)
+      const result = await service.page(makePage({ eventId: randomUUID() }), WORKSPACE_ID)
+      expect(result.status).toBe('duplicate')
+    })
+  })
+
+  describe('group', () => {
+    const makeGroup = (overrides: Partial<GroupDto> = {}): GroupDto & { correlationId: string } => ({
+      groupId: 'acme-corp',
+      userId: 'user_123',
+      source: 'demo-store',
+      version: '1.0',
+      correlationId: randomUUID(),
+      traits: { name: 'Acme Corp', plan: 'enterprise' },
+      ...overrides,
+    })
+
+    it('returns created status when group membership does not exist yet', async () => {
+      prisma.groupTrait.findUnique.mockResolvedValue(null)
+      const result = await service.group(makeGroup(), WORKSPACE_ID)
+      expect(result).toEqual({ groupId: 'acme-corp', userId: 'user_123', status: 'created' })
+    })
+
+    it('returns updated status when group membership already exists', async () => {
+      prisma.groupTrait.findUnique.mockResolvedValue({ id: randomUUID() })
+      const result = await service.group(makeGroup(), WORKSPACE_ID)
+      expect(result.status).toBe('updated')
+    })
+
+    it('upserts group traits in the database', async () => {
+      const group = makeGroup()
+      await service.group(group, WORKSPACE_ID)
+      expect(prisma.groupTrait.upsert).toHaveBeenCalledOnce()
+      const call = prisma.groupTrait.upsert.mock.calls[0][0]
+      expect(call.where).toEqual({ workspaceId_groupId_userId: { workspaceId: WORKSPACE_ID, groupId: 'acme-corp', userId: 'user_123' } })
+      expect(call.create.traits).toEqual(group.traits)
+      expect(call.update.traits).toEqual(group.traits)
+    })
+
+    it('publishes group.identified event to RabbitMQ pipeline', async () => {
+      await service.group(makeGroup(), WORKSPACE_ID)
+      expect(rabbitmq.publish).toHaveBeenCalledOnce()
+      const message = rabbitmq.publish.mock.calls[0][0]
+      expect(message.payload.event).toBe('group.identified')
+      expect(message.payload.userId).toBe('user_123')
+      expect(message.meta.workspaceId).toBe(WORKSPACE_ID)
+    })
+
+    it('publishes group.identified to live event feed', async () => {
+      await service.group(makeGroup(), WORKSPACE_ID)
+      const call = pubsub.publishEvent.mock.calls[0][0]
+      expect(call.eventName).toBe('group.identified')
+      expect(call.userId).toBe('user_123')
+    })
+
+    it('stores empty traits object when traits are omitted', async () => {
+      await service.group(makeGroup({ traits: undefined }), WORKSPACE_ID)
+      const call = prisma.groupTrait.upsert.mock.calls[0][0]
+      expect(call.create.traits).toEqual({})
     })
   })
 

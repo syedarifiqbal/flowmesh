@@ -16,6 +16,8 @@ Every SDK implements exactly these four methods. No SDK ships a subset. Future m
 | `identify(input)` | `POST /ingest/events/identify` | Store traits for a known user |
 | `alias(input)` | `POST /ingest/events/alias` | Link an anonymous visitor to a known user |
 | `batch(inputs[])` | `POST /ingest/events/batch` | Send multiple track events in one call |
+| `page(input)` | `POST /ingest/events/page` | Record a page view (auto-sets event to `page.viewed`) |
+| `group(input)` | `POST /ingest/events/group` | Associate a user with an organisation or account |
 
 ---
 
@@ -228,21 +230,60 @@ Coverage threshold: 80% statements, branches, and functions.
 
 ---
 
-## Planned Methods (not yet implemented)
+## page
 
-These will be added to all SDKs simultaneously when the backend endpoints ship:
+First-class page view. The `event` field is set to `page.viewed` automatically — callers provide the page title and optional URL instead.
 
-### page (post-launch v0.2)
-```
-page(input)  →  POST /ingest/events/page
-```
-First-class page view. Fields: `name` (page title, required), `url` (optional), plus all track fields except `event` (which is set to `page.viewed` automatically).
+**Input:**
 
-### group (post-launch v0.2)
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | ✅ | Page title, e.g. `"Checkout"`, `"Product Detail"` |
+| `url` | string | optional | Full page URL |
+| `source` | string | ✅ | Origin: `web`, `mobile`, etc. |
+| `version` | string | ✅ | Schema version |
+| `userId` | string | one-of | Required if `anonymousId` absent |
+| `anonymousId` | string | one-of | Required if `userId` absent |
+| `sessionId` | string | optional | |
+| `eventId` | UUID | optional | Idempotency key |
+| `timestamp` | ISO 8601 | optional | |
+| `context` | object | optional | |
+
+**Response:** same shape as `track` — `{ eventId, status: "accepted" | "duplicate" }`.
+
+---
+
+## group
+
+Associate a `userId` with an organisation or account. Subsequent calls for the same `groupId + userId` pair update the stored traits (upsert).
+
+**Input:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `groupId` | string | ✅ | The organisation or account ID |
+| `userId` | string | ✅ | The user being associated with the group |
+| `source` | string | ✅ | |
+| `version` | string | ✅ | |
+| `traits` | object | optional | Group attributes: `name`, `plan`, `industry`, `size`, etc. |
+| `eventId` | UUID | optional | |
+| `timestamp` | ISO 8601 | optional | |
+| `context` | object | optional | |
+
+**Response:**
+
+```json
+{ "groupId": "acme-corp", "userId": "user_123", "status": "created" }
+{ "groupId": "acme-corp", "userId": "user_123", "status": "updated" }
 ```
-group(input)  →  POST /ingest/events/group
-```
-Associate a userId with an organisation or account. Fields: `userId` (required), `groupId` (required), `traits` (optional — company name, plan, size, etc.).
+
+`created` on first call for this groupId + userId pair. `updated` on all subsequent calls.
+
+---
+
+## Planned Methods (post-launch)
+
+Future methods added here before implementation begins:
 
 ---
 
