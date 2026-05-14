@@ -22,9 +22,12 @@ Thank you for your interest in contributing. FlowMesh is an active open-source p
 | Config service — pipeline CRUD, encrypted destination credentials | ✅ Complete |
 | Dashboard — pipelines, destinations, events, pipeline builder, live feed, DLQ replay | ✅ Complete |
 | Analytics — WebSocket live feed | ✅ Complete |
+| Slack / Discord / S3 destinations | ✅ Complete |
+| Node.js SDK (`flowmesh-node` on npm) | ✅ Complete |
+| Identify + alias event types | ✅ Complete |
 | Alert service | 🔧 In progress |
-| Slack / S3 / Discord destinations | 🔧 In progress |
-| Node.js SDK | ⬜ Not started |
+| Pipeline execution history | 🔧 Pre-launch |
+| Destination delivery status dashboard | 🔧 Pre-launch |
 
 ---
 
@@ -196,7 +199,7 @@ chore/<short-description>   # tooling, dependencies
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`
 
-Scopes: `ingestion`, `pipeline`, `delivery`, `auth`, `analytics`, `alert`, `config`, `gateway`, `dashboard`, `shared-types`, `nestjs-common`, `docker`, `makefile`, `ci`
+Scopes: `ingestion`, `pipeline`, `delivery`, `auth`, `analytics`, `alert`, `config`, `gateway`, `dashboard`, `sdk-node`, `shared-types`, `nestjs-common`, `docker`, `makefile`, `ci`
 
 Examples:
 ```
