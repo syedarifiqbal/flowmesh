@@ -8,6 +8,7 @@ import { RedisService } from '../redis/redis.service'
 import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { IdentifyDto } from './dto/identify.dto'
+import { AliasDto } from './dto/alias.dto'
 import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
 const mockLogger = {
@@ -34,6 +35,7 @@ describe('IngestionService', () => {
   let prisma: {
     event: { create: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> }
     userTrait: { findUnique: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> }
+    aliasMap: { findUnique: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> }
     $queryRaw: ReturnType<typeof vi.fn>
   }
   let rabbitmq: { publish: ReturnType<typeof vi.fn> }
@@ -49,6 +51,10 @@ describe('IngestionService', () => {
       userTrait: {
         findUnique: vi.fn().mockResolvedValue(null),
         upsert: vi.fn().mockResolvedValue({}),
+      },
+      aliasMap: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({}),
       },
       $queryRaw: vi.fn(),
     }
@@ -225,6 +231,64 @@ describe('IngestionService', () => {
       await service.identify(makeIdentify({ traits: undefined }), WORKSPACE_ID)
       const call = prisma.userTrait.upsert.mock.calls[0][0]
       expect(call.create.traits).toEqual({})
+    })
+  })
+
+  describe('alias', () => {
+    const makeAlias = (overrides: Partial<AliasDto> = {}): AliasDto & { correlationId: string } => ({
+      userId: 'user_123',
+      anonymousId: 'anon_abc',
+      source: 'demo-store',
+      version: '1.0',
+      correlationId: randomUUID(),
+      ...overrides,
+    })
+
+    it('returns created status when alias does not exist yet', async () => {
+      prisma.aliasMap.findUnique.mockResolvedValue(null)
+      const result = await service.alias(makeAlias(), WORKSPACE_ID)
+      expect(result).toEqual({ userId: 'user_123', anonymousId: 'anon_abc', status: 'created' })
+    })
+
+    it('returns exists status when alias already recorded', async () => {
+      prisma.aliasMap.findUnique.mockResolvedValue({ id: randomUUID() })
+      const result = await service.alias(makeAlias(), WORKSPACE_ID)
+      expect(result.status).toBe('exists')
+    })
+
+    it('does not create a duplicate alias record when alias already exists', async () => {
+      prisma.aliasMap.findUnique.mockResolvedValue({ id: randomUUID() })
+      await service.alias(makeAlias(), WORKSPACE_ID)
+      expect(prisma.aliasMap.create).not.toHaveBeenCalled()
+    })
+
+    it('persists the alias mapping to the database', async () => {
+      const alias = makeAlias()
+      await service.alias(alias, WORKSPACE_ID)
+      expect(prisma.aliasMap.create).toHaveBeenCalledOnce()
+      const call = prisma.aliasMap.create.mock.calls[0][0]
+      expect(call.data.workspaceId).toBe(WORKSPACE_ID)
+      expect(call.data.userId).toBe('user_123')
+      expect(call.data.anonymousId).toBe('anon_abc')
+    })
+
+    it('publishes user.aliased event to RabbitMQ pipeline', async () => {
+      const alias = makeAlias()
+      await service.alias(alias, WORKSPACE_ID)
+      expect(rabbitmq.publish).toHaveBeenCalledOnce()
+      const message = rabbitmq.publish.mock.calls[0][0]
+      expect(message.payload.event).toBe('user.aliased')
+      expect(message.payload.userId).toBe('user_123')
+      expect(message.payload.anonymousId).toBe('anon_abc')
+    })
+
+    it('publishes to live event feed with event name user.aliased', async () => {
+      await service.alias(makeAlias(), WORKSPACE_ID)
+      expect(pubsub.publishEvent).toHaveBeenCalledOnce()
+      const call = pubsub.publishEvent.mock.calls[0][0]
+      expect(call.eventName).toBe('user.aliased')
+      expect(call.userId).toBe('user_123')
+      expect(call.anonymousId).toBe('anon_abc')
     })
   })
 

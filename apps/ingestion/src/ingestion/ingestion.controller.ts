@@ -4,6 +4,7 @@ import { IngestionService } from './ingestion.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { IngestBatchDto } from './dto/ingest-batch.dto'
 import { IdentifyDto } from './dto/identify.dto'
+import { AliasDto } from './dto/alias.dto'
 import { QueryEventsDto } from './dto/query-events.dto'
 import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
@@ -49,6 +50,17 @@ export class IngestionController {
   ) {
     const correlationId = dto.correlationId ?? headerCorrelationId
     return this.ingestionService.identify({ ...dto, correlationId }, workspaceId)
+  }
+
+  @Post('alias')
+  @HttpCode(202)
+  async alias(
+    @WorkspaceId() workspaceId: string,
+    @Headers(CORRELATION_ID_HEADER) headerCorrelationId: string,
+    @Body() dto: AliasDto,
+  ) {
+    const correlationId = dto.correlationId ?? headerCorrelationId
+    return this.ingestionService.alias({ ...dto, correlationId }, workspaceId)
   }
 
   @Post('batch')

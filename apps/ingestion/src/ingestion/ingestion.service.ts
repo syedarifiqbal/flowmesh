@@ -8,6 +8,7 @@ import { RedisService } from '../redis/redis.service'
 import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
 import { IdentifyDto } from './dto/identify.dto'
+import { AliasDto } from './dto/alias.dto'
 import { QueryEventsDto } from './dto/query-events.dto'
 import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
@@ -30,6 +31,12 @@ export interface IngestResult {
 export interface IdentifyResult {
   userId: string
   status: 'created' | 'updated'
+}
+
+export interface AliasResult {
+  userId: string
+  anonymousId: string
+  status: 'created' | 'exists'
 }
 
 @Injectable()
@@ -155,6 +162,74 @@ export class IngestionService {
     this.logger.info({ eventId, correlationId: dto.correlationId, workspaceId, event: dto.event }, 'event accepted')
 
     return { eventId, status: 'accepted' }
+  }
+
+  async alias(
+    dto: AliasDto & { correlationId: string },
+    workspaceId: string,
+  ): Promise<AliasResult> {
+    const eventId = dto.eventId ?? randomUUID()
+    const timestamp = dto.timestamp ?? new Date().toISOString()
+
+    const existing = await this.prisma.aliasMap.findUnique({
+      where: { workspaceId_anonymousId: { workspaceId, anonymousId: dto.anonymousId } },
+      select: { id: true },
+    })
+
+    if (!existing) {
+      await this.prisma.aliasMap.create({
+        data: {
+          workspaceId,
+          anonymousId: dto.anonymousId,
+          userId: dto.userId,
+          source: dto.source,
+          version: dto.version,
+        },
+      })
+    }
+
+    // Publish so pipelines can react to alias events (e.g. welcome sequence after signup)
+    await this.rabbitmq.publish({
+      meta: {
+        messageId: randomUUID(),
+        correlationId: dto.correlationId,
+        timestamp: new Date().toISOString(),
+        source: 'ingestion',
+        version: '1.0',
+        workspaceId,
+      },
+      payload: {
+        eventId,
+        event: 'user.aliased',
+        source: dto.source,
+        version: dto.version,
+        userId: dto.userId,
+        anonymousId: dto.anonymousId,
+        properties: { anonymousId: dto.anonymousId },
+        context: {},
+        receivedAt: timestamp,
+      },
+    })
+
+    this.pubsub.publishEvent({
+      id: eventId,
+      eventId,
+      eventName: 'user.aliased',
+      source: dto.source,
+      userId: dto.userId,
+      anonymousId: dto.anonymousId,
+      correlationId: dto.correlationId,
+      properties: { anonymousId: dto.anonymousId },
+      receivedAt: timestamp,
+      workspaceId,
+    }).catch((err) => this.logger.warn({ err }, 'live event publish failed — non-critical'))
+
+    this.logger.info(
+      { userId: dto.userId, anonymousId: dto.anonymousId, workspaceId, correlationId: dto.correlationId },
+      'alias created',
+    )
+
+    return { userId: dto.userId, anonymousId: dto.anonymousId, status: existing ? 'exists' : 'created' }
   }
 
   async ingestBatch(
