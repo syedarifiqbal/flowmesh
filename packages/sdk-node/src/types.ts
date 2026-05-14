@@ -32,6 +32,22 @@ export interface BatchResult {
   results: TrackResult[]
 }
 
+export interface IdentifyInput {
+  userId: string
+  anonymousId?: string
+  source: string
+  version: string
+  traits?: Record<string, unknown>
+  eventId?: string
+  timestamp?: string
+  context?: Record<string, unknown>
+}
+
+export interface IdentifyResult {
+  userId: string
+  status: 'created' | 'updated'
+}
+
 export interface FlowMeshError extends Error {
   status?: number
 }

@@ -7,6 +7,7 @@ import { RabbitMQService } from '../rabbitmq/rabbitmq.service'
 import { RedisService } from '../redis/redis.service'
 import { RedisPubSubService } from '../redis/redis-pubsub.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
+import { IdentifyDto } from './dto/identify.dto'
 import { QueryEventsDto } from './dto/query-events.dto'
 import { ThroughputQueryDto } from './dto/throughput-query.dto'
 
@@ -24,6 +25,11 @@ const RANGE_CONFIG = {
 export interface IngestResult {
   eventId: string
   status: 'accepted' | 'duplicate'
+}
+
+export interface IdentifyResult {
+  userId: string
+  status: 'created' | 'updated'
 }
 
 @Injectable()
@@ -156,6 +162,78 @@ export class IngestionService {
     workspaceId: string,
   ): Promise<IngestResult[]> {
     return Promise.all(events.map((event) => this.ingest(event, workspaceId)))
+  }
+
+  async identify(
+    dto: IdentifyDto & { correlationId: string },
+    workspaceId: string,
+  ): Promise<IdentifyResult> {
+    const eventId = dto.eventId ?? randomUUID()
+    const timestamp = dto.timestamp ?? new Date().toISOString()
+
+    const existing = await this.prisma.userTrait.findUnique({
+      where: { workspaceId_userId: { workspaceId, userId: dto.userId } },
+      select: { id: true },
+    })
+
+    await this.prisma.userTrait.upsert({
+      where: { workspaceId_userId: { workspaceId, userId: dto.userId } },
+      create: {
+        workspaceId,
+        userId: dto.userId,
+        anonymousId: dto.anonymousId ?? null,
+        traits: (dto.traits ?? {}) as object,
+        source: dto.source,
+        version: dto.version,
+      },
+      update: {
+        anonymousId: dto.anonymousId ?? null,
+        traits: (dto.traits ?? {}) as object,
+        source: dto.source,
+        version: dto.version,
+      },
+    })
+
+    // Publish to pipeline so identify calls can trigger rules (e.g. welcome Slack message)
+    await this.rabbitmq.publish({
+      meta: {
+        messageId: randomUUID(),
+        correlationId: dto.correlationId,
+        timestamp: new Date().toISOString(),
+        source: 'ingestion',
+        version: '1.0',
+        workspaceId,
+      },
+      payload: {
+        eventId,
+        event: 'user.identified',
+        source: dto.source,
+        version: dto.version,
+        userId: dto.userId,
+        anonymousId: dto.anonymousId,
+        properties: dto.traits ?? {},
+        context: dto.context ?? {},
+        receivedAt: timestamp,
+      },
+    })
+
+    // Publish to live feed so the dashboard shows identify calls
+    this.pubsub.publishEvent({
+      id: eventId,
+      eventId,
+      eventName: 'user.identified',
+      source: dto.source,
+      userId: dto.userId,
+      anonymousId: dto.anonymousId ?? null,
+      correlationId: dto.correlationId,
+      properties: dto.traits ?? {},
+      receivedAt: timestamp,
+      workspaceId,
+    }).catch((err) => this.logger.warn({ err }, 'live event publish failed — non-critical'))
+
+    this.logger.info({ userId: dto.userId, workspaceId, correlationId: dto.correlationId }, 'user identified')
+
+    return { userId: dto.userId, status: existing ? 'updated' : 'created' }
   }
 
   async getThroughput(
