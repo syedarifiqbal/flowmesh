@@ -10,7 +10,10 @@
 
 **Self-hostable, open-source real-time event pipeline platform.**
 
-FlowMesh replaces Segment + Mixpanel + PagerDuty in a single Docker deployment — fully open source, fully under your control, free forever.
+FlowMesh covers event capture, pipeline routing, real-time dashboards, and alerting — the core of what Segment, Mixpanel, and PagerDuty do for small and mid-size teams, self-hosted and free.
+
+> ⭐ If you are tired of paying $500–$20,000/month to Segment, Mixpanel, or PagerDuty —
+> star this repo so other developers can find it.
 
 ---
 
@@ -39,13 +42,15 @@ docker compose up
 
 Open source. Self-hosted. Free forever. No license keys. No feature flags. No artificial limits on events or destinations.
 
-Clone the repo, run one command, and have a full production event pipeline in 60 seconds. That is it.
+Clone the repo, run one command, and have a working event pipeline running locally in minutes. A production-hardened configuration — TLS termination, secure PgBouncer auth, and Traefik edge proxy — ships before the v1.0 launch.
 
 ## Features
 
 | Feature | Status |
 |---|---|
 | Event ingestion API (REST + SDK) | ✅ Available |
+| `identify()` — store user traits, link userId to profile | ✅ Available |
+| `alias()` — link anonymous visitor to known user at login | ✅ Available |
 | Schema validation and auto-generated correlation ID tracing | ✅ Available |
 | Idempotent event deduplication | ✅ Available |
 | RabbitMQ-backed event queue | ✅ Available |
@@ -72,9 +77,9 @@ Clone the repo, run one command, and have a full production event pipeline in 60
 
 **Docker Compose** — for solo developers and small teams. One server, one command. Runs comfortably on an $11/month Hetzner VPS.
 
-**Kubernetes + Helm** — for larger teams who want to self-host at scale with independent scaling per service. Also free and open source — we ship the Helm chart so you have the tools to do it properly.
+**Kubernetes + Helm** *(planned for v0.3)* — for teams self-hosting at scale with independent scaling per service. The Helm chart is on the roadmap — community edition, fully open source.
 
-Both deployment options are fully open source with no restrictions.
+Docker Compose is available today with no restrictions.
 
 ---
 
@@ -92,7 +97,7 @@ FlowMesh is a polyglot microservices platform. Each service has a single, clearl
 | Ingestion | NestJS + TypeScript | Receive events, validate, deduplicate, publish to queue |
 | Pipeline | NestJS + TypeScript | Execute filter / transform / enrich / fan-out |
 | Delivery | **Go** | Consume queue, deliver to destinations, circuit breaker, retry, DLQ |
-| Auth | NestJS + TypeScript | JWT, API keys, workspaces, RBAC |
+| Auth | NestJS + TypeScript | JWT, API keys, workspaces |
 | Analytics | NestJS + TypeScript | Aggregate metrics, serve dashboard data |
 | Alert | NestJS + TypeScript | Evaluate alert rules against event stream |
 | Config | NestJS + TypeScript | Store pipeline definitions and destination credentials |
@@ -113,11 +118,11 @@ FlowMesh is a polyglot microservices platform. Each service has a single, clearl
 
 ### Distributed Systems Patterns
 
-Every hard distributed systems problem in the event pipeline is solved explicitly:
+The core distributed systems problems in the event pipeline are solved explicitly:
 
 | Pattern | Where | Why |
 |---|---|---|
-| Rate limiting | API Gateway → Redis | Sliding window per API key |
+| Rate limiting | API Gateway → Redis | Fixed window per API key |
 | Idempotency | Ingestion → Redis | Deduplicate events by `eventId`, survives restarts |
 | Message queue | Ingestion → RabbitMQ → Pipeline | Decouple services, buffer during downstream outages |
 | Circuit breaker | Delivery | Stop cascade failures when Slack / Postgres / S3 is slow |
@@ -212,6 +217,15 @@ curl -X POST http://localhost:3000/ingest/events/batch \
 ---
 
 ## Event Schema
+
+FlowMesh exposes three ingestion endpoints:
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /ingest/events` | Track a named event — page views, clicks, orders, anything |
+| `POST /ingest/events/identify` | Store traits for a known user (`name`, `email`, `plan`, etc.) |
+| `POST /ingest/events/alias` | Link an anonymous visitor ID to a known userId at login time |
+| `POST /ingest/events/batch` | Send up to 100 events in a single request |
 
 Every event sent to FlowMesh follows this structure:
 
@@ -384,7 +398,12 @@ The best ways to contribute right now:
 2. **Documentation** — improve examples, fix typos, add missing context
 3. **Tests** — increase coverage for edge cases
 4. **Alerting engine** — condition builder and rule evaluation against the event stream
-5. **Node.js SDK** — wraps the ingestion API for server-side use
+5. **Python SDK** — `pip install flowmesh`
+6. **PHP SDK** — `composer require flowmesh/sdk`
+7. **Laravel package** — service provider, `FlowMesh::track()` facade, artisan commands
+8. **NestJS module** — `FlowMeshModule.forRoot()` with `@InjectFlowMesh()` decorator
+9. **Go SDK** — for server-side Go applications
+10. **New destination drivers** — email (SMTP/Resend), PagerDuty, Datadog
 
 Please open an issue before starting significant work so we can discuss the approach.
 
@@ -418,11 +437,11 @@ make test-integration    # integration tests (requires Docker infra running)
 
 ---
 
-## FlowMesh Cloud
+## FlowMesh Cloud *(planned)*
 
-If you want FlowMesh without managing the infrastructure yourself, [FlowMesh Cloud](https://getflowmesh.com) is a hosted version — same pipeline, same SDK, no server to run.
+A hosted version of FlowMesh is planned — same pipeline, same SDK, no infrastructure to run. Designed for teams who want the power of FlowMesh without operating it themselves.
 
-The self-hosted open source version has no limitations. FlowMesh Cloud is for teams who prefer not to operate it themselves.
+The self-hosted community edition has no limitations and is the current focus. Cloud will follow based on community feedback.
 
 ---
 
@@ -455,6 +474,20 @@ Enterprise features are available on FlowMesh Cloud.
 
 ---
 
+## Support FlowMesh
+
+FlowMesh is built and maintained by one engineer in his spare time.
+
+If it saves you from a Segment bill or a 3am infrastructure incident —
+a GitHub star takes 2 seconds and helps other developers find it.
+
+⭐ [Star FlowMesh on GitHub](https://github.com/syedarifiqbal/flowmesh)
+
+Found a bug? [Open an issue](https://github.com/syedarifiqbal/flowmesh/issues)
+Want to contribute? [Read the contributing guide](CONTRIBUTING.md)
+
+---
+
 ## Author
 
 Built by [Arif Iqbal](https://syedarifiqbal.com) — Senior Full-Stack Engineer.
@@ -462,7 +495,3 @@ Built by [Arif Iqbal](https://syedarifiqbal.com) — Senior Full-Stack Engineer.
 - GitHub: [@syedarifiqbal](https://github.com/syedarifiqbal)
 - LinkedIn: [linkedin.com/in/syedarifiqbal](https://linkedin.com/in/syedarifiqbal)
 - Website: [syedarifiqbal.com](https://syedarifiqbal.com)
-
----
-
-*If FlowMesh solves a problem you have, give it a star — it helps more people find it.*
