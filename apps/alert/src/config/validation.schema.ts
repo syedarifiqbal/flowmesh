@@ -24,9 +24,9 @@ export const appConfigValidationSchema = Joi.object({
   DATABASE_URL: postgresUrlWithSchema('alert'),
   RABBITMQ_URL: Joi.string().required(),
   REDIS_EPHEMERAL_URL: Joi.string().required(),
-  SMTP_HOST: Joi.string().default(''),
+  SMTP_HOST: Joi.string().allow('').default(''),
   SMTP_PORT: Joi.number().default(587),
-  SMTP_USER: Joi.string().default(''),
-  SMTP_PASS: Joi.string().default(''),
-  SMTP_FROM: Joi.string().default('alerts@flowmesh.io'),
+  SMTP_USER: Joi.string().allow('').default(''),
+  SMTP_PASS: Joi.string().allow('').default(''),
+  SMTP_FROM: Joi.string().allow('').default('alerts@flowmesh.io'),
 })
