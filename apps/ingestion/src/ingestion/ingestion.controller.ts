@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, HttpCode, Query, Headers } from '@nestjs/common'
+import { Controller, Post, Get, Body, HttpCode, Query, Headers, Param } from '@nestjs/common'
 import { WorkspaceId, CORRELATION_ID_HEADER } from '@flowmesh/nestjs-common'
 import { IngestionService } from './ingestion.service'
 import { IngestEventDto } from './dto/ingest-event.dto'
@@ -13,6 +13,14 @@ import { ThroughputQueryDto } from './dto/throughput-query.dto'
 @Controller('events')
 export class IngestionController {
   constructor(private readonly ingestionService: IngestionService) {}
+
+  @Get('users/:userId')
+  getUserProfile(
+    @WorkspaceId() workspaceId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.ingestionService.getUserProfile(userId, workspaceId)
+  }
 
   @Get('throughput')
   getThroughput(
