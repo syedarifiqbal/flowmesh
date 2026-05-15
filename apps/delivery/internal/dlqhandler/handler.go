@@ -147,6 +147,8 @@ func (h *Handler) publish(ctx context.Context, dlqEventID string, payload json.R
 	}
 	if meta, ok := msg["meta"].(map[string]interface{}); ok {
 		meta["dlqEventId"] = dlqEventID
+	} else {
+		msg["meta"] = map[string]interface{}{"dlqEventId": dlqEventID}
 	}
 	modified, err := json.Marshal(msg)
 	if err != nil {
