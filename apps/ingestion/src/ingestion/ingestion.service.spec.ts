@@ -37,7 +37,11 @@ describe('IngestionService', () => {
   let prisma: {
     event: { create: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> }
     userTrait: { findUnique: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> }
-    aliasMap: { findUnique: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> }
+    aliasMap: {
+      findUnique: ReturnType<typeof vi.fn>
+      findMany: ReturnType<typeof vi.fn>
+      create: ReturnType<typeof vi.fn>
+    }
     groupTrait: { findUnique: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> }
     $queryRaw: ReturnType<typeof vi.fn>
   }
@@ -57,6 +61,7 @@ describe('IngestionService', () => {
       },
       aliasMap: {
         findUnique: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
         create: vi.fn().mockResolvedValue({}),
       },
       groupTrait: {
@@ -399,6 +404,123 @@ describe('IngestionService', () => {
       await service.group(makeGroup({ traits: undefined }), WORKSPACE_ID)
       const call = prisma.groupTrait.upsert.mock.calls[0][0]
       expect(call.create.traits).toEqual({})
+    })
+  })
+
+  describe('findAll', () => {
+    beforeEach(() => {
+      prisma.event.findMany.mockResolvedValue([])
+      prisma.event.count.mockResolvedValue(0)
+    })
+
+    it('returns events and total count', async () => {
+      const fakeEvent = { id: '1', eventId: randomUUID(), eventName: 'order.created', source: 'server', version: '1.0', correlationId: randomUUID(), userId: 'user_123', anonymousId: null, properties: {}, receivedAt: new Date() }
+      prisma.event.findMany.mockResolvedValue([fakeEvent])
+      prisma.event.count.mockResolvedValue(1)
+
+      const result = await service.findAll(WORKSPACE_ID, {})
+      expect(result.total).toBe(1)
+      expect(result.events).toHaveLength(1)
+      expect(result.limit).toBe(50)
+      expect(result.offset).toBe(0)
+    })
+
+    it('filters by event name when event param provided', async () => {
+      await service.findAll(WORKSPACE_ID, { event: 'order.created' })
+      const where = prisma.event.findMany.mock.calls[0][0].where
+      expect(where.AND).toContainEqual({ eventName: 'order.created' })
+    })
+
+    it('filters by source when source param provided', async () => {
+      await service.findAll(WORKSPACE_ID, { source: 'web' })
+      const where = prisma.event.findMany.mock.calls[0][0].where
+      expect(where.AND).toContainEqual({ source: 'web' })
+    })
+
+    it('filters by userId directly when no alias mapping exists', async () => {
+      prisma.aliasMap.findMany.mockResolvedValue([])
+      await service.findAll(WORKSPACE_ID, { userId: 'user_123' })
+      const where = prisma.event.findMany.mock.calls[0][0].where
+      expect(where.AND).toContainEqual({ userId: 'user_123' })
+    })
+
+    it('filters by anonymousId directly when no alias mapping exists', async () => {
+      prisma.aliasMap.findUnique.mockResolvedValue(null)
+      await service.findAll(WORKSPACE_ID, { anonymousId: 'anon_abc' })
+      const where = prisma.event.findMany.mock.calls[0][0].where
+      expect(where.AND).toContainEqual({ anonymousId: 'anon_abc' })
+    })
+
+    describe('identity stitching', () => {
+      it('expands userId filter to include pre-login events for linked anonymousIds', async () => {
+        prisma.aliasMap.findMany.mockResolvedValue([{ anonymousId: 'anon_abc' }])
+        await service.findAll(WORKSPACE_ID, { userId: 'user_123' })
+
+        const and = prisma.event.findMany.mock.calls[0][0].where.AND as unknown[]
+        const stitched = and.find((c) => typeof c === 'object' && 'OR' in (c as object)) as { OR: unknown[] }
+        expect(stitched.OR).toContainEqual({ userId: 'user_123' })
+        expect(stitched.OR).toContainEqual({ anonymousId: { in: ['anon_abc'] } })
+      })
+
+      it('expands anonymousId filter to include post-login events for linked userId', async () => {
+        prisma.aliasMap.findUnique.mockResolvedValue({ userId: 'user_123' })
+        await service.findAll(WORKSPACE_ID, { anonymousId: 'anon_abc' })
+
+        const and = prisma.event.findMany.mock.calls[0][0].where.AND as unknown[]
+        const stitched = and.find((c) => typeof c === 'object' && 'OR' in (c as object)) as { OR: unknown[] }
+        expect(stitched.OR).toContainEqual({ anonymousId: 'anon_abc' })
+        expect(stitched.OR).toContainEqual({ userId: 'user_123' })
+      })
+
+      it('includes all anonymousIds when a userId has multiple alias mappings', async () => {
+        prisma.aliasMap.findMany.mockResolvedValue([
+          { anonymousId: 'anon_device1' },
+          { anonymousId: 'anon_device2' },
+        ])
+        await service.findAll(WORKSPACE_ID, { userId: 'user_123' })
+
+        const and = prisma.event.findMany.mock.calls[0][0].where.AND as unknown[]
+        const stitched = and.find((c) => typeof c === 'object' && 'OR' in (c as object)) as { OR: unknown[] }
+        expect(stitched.OR).toContainEqual({ anonymousId: { in: ['anon_device1', 'anon_device2'] } })
+      })
+
+      it('looks up alias mapping scoped to the correct workspaceId', async () => {
+        await service.findAll(WORKSPACE_ID, { userId: 'user_123' })
+        expect(prisma.aliasMap.findMany).toHaveBeenCalledWith({
+          where: { workspaceId: WORKSPACE_ID, userId: 'user_123' },
+          select: { anonymousId: true },
+        })
+      })
+
+      it('looks up alias mapping scoped to the correct workspaceId for anonymousId filter', async () => {
+        await service.findAll(WORKSPACE_ID, { anonymousId: 'anon_abc' })
+        expect(prisma.aliasMap.findUnique).toHaveBeenCalledWith({
+          where: { workspaceId_anonymousId: { workspaceId: WORKSPACE_ID, anonymousId: 'anon_abc' } },
+          select: { userId: true },
+        })
+      })
+    })
+
+    it('applies case-insensitive search across eventName, source, and correlationId', async () => {
+      await service.findAll(WORKSPACE_ID, { search: 'checkout' })
+      const and = prisma.event.findMany.mock.calls[0][0].where.AND
+      const searchClause = and.find((c: { OR?: unknown }) => c.OR)
+      expect(searchClause.OR).toContainEqual({ eventName: { contains: 'checkout', mode: 'insensitive' } })
+      expect(searchClause.OR).toContainEqual({ source: { contains: 'checkout', mode: 'insensitive' } })
+      expect(searchClause.OR).toContainEqual({ correlationId: { contains: 'checkout', mode: 'insensitive' } })
+    })
+
+    it('respects limit and offset from query params', async () => {
+      await service.findAll(WORKSPACE_ID, { limit: 10, offset: 20 })
+      const call = prisma.event.findMany.mock.calls[0][0]
+      expect(call.take).toBe(10)
+      expect(call.skip).toBe(20)
+    })
+
+    it('returns limit and offset in the response', async () => {
+      const result = await service.findAll(WORKSPACE_ID, { limit: 25, offset: 50 })
+      expect(result.limit).toBe(25)
+      expect(result.offset).toBe(50)
     })
   })
 
