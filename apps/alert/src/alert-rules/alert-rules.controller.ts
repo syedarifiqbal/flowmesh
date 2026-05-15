@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode,
+  Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpException, HttpStatus,
 } from '@nestjs/common'
 import { WorkspaceId } from '@flowmesh/nestjs-common'
 import { AlertRulesService } from './alert-rules.service'
@@ -53,7 +53,12 @@ export class AlertRulesController {
   @HttpCode(200)
   async test(@WorkspaceId() workspaceId: string, @Param('id') id: string) {
     const rule = await this.service.findOne(id, workspaceId)
-    await this.evaluator.sendTestNotification(rule)
+    try {
+      await this.evaluator.sendTestNotification(rule)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Notification failed'
+      throw new HttpException({ message, error: 'Test notification failed' }, HttpStatus.UNPROCESSABLE_ENTITY)
+    }
     return { sent: true }
   }
 
