@@ -48,7 +48,7 @@ func (s *DLQStore) Write(ctx context.Context, e DLQEvent) error {
 func (s *DLQStore) List(ctx context.Context, workspaceID string, limit, offset int) ([]DLQEvent, int, error) {
 	var total int
 	if err := s.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM delivery.dead_letter_events WHERE workspace_id = $1`,
+		`SELECT COUNT(*) FROM delivery.dead_letter_events WHERE workspace_id = $1 AND resolved_at IS NULL`,
 		workspaceID,
 	).Scan(&total); err != nil {
 		return nil, 0, err
@@ -59,7 +59,7 @@ func (s *DLQStore) List(ctx context.Context, workspaceID string, limit, offset i
 		       destination_id, destination_type, payload, error_reason, attempts,
 		       created_at, replayed_at, resolved_at
 		FROM delivery.dead_letter_events
-		WHERE workspace_id = $1
+		WHERE workspace_id = $1 AND resolved_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
 	`, workspaceID, limit, offset)
