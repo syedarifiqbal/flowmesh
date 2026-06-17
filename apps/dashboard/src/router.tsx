@@ -1,6 +1,7 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { isAuthenticated } from './lib/auth'
 import AppLayout from './components/layout/AppLayout'
+import PageErrorBoundary from './components/ui/PageErrorBoundary'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -21,6 +22,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
   return <>{children}</>
+}
+
+function ProtectedBuilder() {
+  const location = useLocation()
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />
+  }
+  return (
+    <PageErrorBoundary locationKey={location.key}>
+      <PipelineBuilderPage />
+    </PageErrorBoundary>
+  )
 }
 
 export default function AppRouter() {
@@ -48,14 +61,7 @@ export default function AppRouter() {
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
       {/* Full-screen builder — protected but outside AppLayout */}
-      <Route
-        path="/pipelines/:id/builder"
-        element={
-          <ProtectedRoute>
-            <PipelineBuilderPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/pipelines/:id/builder" element={<ProtectedBuilder />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
