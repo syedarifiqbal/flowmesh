@@ -132,6 +132,7 @@ services:
       PIPELINE_SERVICE_URL: http://pipeline:3002
       ANALYTICS_SERVICE_URL: http://analytics:3006
       DELIVERY_SERVICE_URL: http://delivery:3003
+      ALERT_SERVICE_URL: http://alert:3007
       REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
       REDIS_PERSISTENT_URL: redis://redis-persistent:6379
     ports:
@@ -291,17 +292,36 @@ services:
     networks:
       - flowmesh
 
-  # alert:
-  #   build:
-  #     context: ../apps/alert
-  #     dockerfile: Dockerfile
-  #   container_name: flowmesh-alert
-  #   environment:
-  #     PORT: 3007
-  #     DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh
-  #     RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
-  #   networks:
-  #     - flowmesh
+  alert:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.nestjs
+      args:
+        SERVICE_NAME: alert
+        SERVICE_PORT: 3007
+    container_name: flowmesh-alert
+    restart: unless-stopped
+    environment:
+      PORT: 3007
+      DATABASE_URL: postgresql://flowmesh:${POSTGRES_PASSWORD}@pgbouncer:5432/flowmesh?schema=alert
+      RABBITMQ_URL: amqp://flowmesh:${RABBITMQ_PASSWORD}@rabbitmq:5672/flowmesh
+      REDIS_EPHEMERAL_URL: redis://redis-ephemeral:6379
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASS: "${SMTP_PASS:-}"
+      SMTP_FROM: "${SMTP_FROM:-alerts@flowmesh.io}"
+    ports:
+      - "3007:3007"
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis-ephemeral:
+        condition: service_healthy
+    networks:
+      - flowmesh
 
   # ─── Observability ───────────────────────────────────────────
 

@@ -158,6 +158,25 @@ auth-generate:
 gateway-dev:
 	pnpm --filter @flowmesh/api-gateway dev
 
+# ─── Alert service ───────────────────────────────────────────────────────────
+
+alert-dev:
+	pnpm --filter @flowmesh/alert prisma:generate
+	pnpm --filter @flowmesh/alert dev
+
+alert-migrate-create:
+	pnpm --filter @flowmesh/alert prisma:migrate:create
+
+alert-migrate:
+	pnpm --filter @flowmesh/alert prisma:migrate:deploy
+	pnpm --filter @flowmesh/alert prisma:generate
+
+alert-generate:
+	pnpm --filter @flowmesh/alert prisma:generate
+
+restart-alert:
+	$(COMPOSE) up -d --build alert
+
 # ─── Analytics service ───────────────────────────────────────────────────────
 
 analytics-dev:
@@ -220,6 +239,7 @@ env-setup:
         delivery-dev delivery-build delivery-migrate delivery-test delivery-test-race \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         auth-dev auth-migrate-create auth-migrate auth-generate \
+        alert-dev alert-migrate-create alert-migrate alert-generate restart-alert \
         gateway-dev analytics-dev dashboard-dev \
         restart-gateway restart-ingestion restart-pipeline restart-delivery \
         restart-auth restart-config restart-analytics restart-dashboard \

@@ -12,6 +12,7 @@ import DestinationsPage from './pages/destinations/DestinationsPage'
 import ApiKeysPage from './pages/api-keys/ApiKeysPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import DLQPage from './pages/dlq/DLQPage'
+import AlertsPage from './pages/alerts/AlertsPage'
 import PipelineBuilderPage from './pages/pipelines/builder/PipelineBuilderPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -43,6 +44,7 @@ export default function AppRouter() {
         <Route path="/destinations" element={<DestinationsPage />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
         <Route path="/dlq" element={<DLQPage />} />
+        <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
       {/* Full-screen builder — protected but outside AppLayout */}

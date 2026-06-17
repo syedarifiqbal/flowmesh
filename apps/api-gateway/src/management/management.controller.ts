@@ -12,6 +12,7 @@ import { ProxyService } from '../proxy/proxy.service'
 // /executions* → pipeline service
 // /dlq* → delivery service
 // /delivery/error-rate* → delivery service
+// /alert-rules* → alert service
 @Controller()
 @UseGuards(AuthGuard, RateLimitGuard)
 @RateLimit('mgmt')
@@ -63,5 +64,11 @@ export class ManagementController {
     const base = this.config.get<string>('DELIVERY_SERVICE_URL')!
     const upstreamUrl = req.url.replace(/^\/delivery\/error-rate/, '/error-rate')
     await this.proxy.forward(req, res, `${base}${upstreamUrl}`)
+  }
+
+  @All('alert-rules*')
+  async alertRules(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const base = this.config.get<string>('ALERT_SERVICE_URL')!
+    await this.proxy.forward(req, res, `${base}${req.url}`)
   }
 }
