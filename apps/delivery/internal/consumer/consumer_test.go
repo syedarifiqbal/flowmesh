@@ -69,9 +69,11 @@ func makeBody(workspaceID, destinationID string, event map[string]any) []byte {
 
 func newTestConsumer(cfgURL string) *Consumer {
 	return &Consumer{
-		configClient: configclient.New(cfgURL),
-		breakers:     make(map[string]*gobreaker.CircuitBreaker),
-		logger:       testLogger(),
+		configClient:   configclient.New(cfgURL),
+		dlqWriter:      nil, // nil is safe — consumer guards against nil before writing
+		attemptsWriter: nil,
+		breakers:       make(map[string]*gobreaker.CircuitBreaker),
+		logger:         testLogger(),
 	}
 }
 
@@ -320,7 +322,7 @@ func TestBreaker_DifferentDestinationsGetDifferentBreakers(t *testing.T) {
 
 func TestNew_InitialisesBreakersMap(t *testing.T) {
 	cfgClient := configclient.New("http://127.0.0.1:1")
-	c := New(nil, cfgClient, testLogger())
+	c := New(nil, cfgClient, nil, nil, testLogger())
 
 	if c.breakers == nil {
 		t.Error("expected breakers map to be initialised")

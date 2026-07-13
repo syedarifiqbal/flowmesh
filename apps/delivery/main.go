@@ -16,6 +16,9 @@ import (
 	"github.com/flowmesh/delivery/internal/config"
 	"github.com/flowmesh/delivery/internal/configclient"
 	"github.com/flowmesh/delivery/internal/consumer"
+	"github.com/flowmesh/delivery/internal/dlqhandler"
+	"github.com/flowmesh/delivery/internal/metricshandler"
+	"github.com/flowmesh/delivery/internal/store"
 	"github.com/flowmesh/delivery/internal/testhandler"
 )
 
@@ -34,6 +37,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pool, err := store.NewPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("could not connect to postgres", "err", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	dlqStore := store.NewDLQStore(pool)
+	attemptsStore := store.NewAttemptsStore(pool)
+
 	conn, err := connectRabbitMQ(cfg.RabbitMQURL, logger)
 	if err != nil {
 		logger.Error("could not connect to RabbitMQ", "err", err)
@@ -43,22 +59,24 @@ func main() {
 
 	cfgClient := configclient.New(cfg.ConfigServiceURL)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	c := consumer.New(conn, cfgClient, logger)
+	c := consumer.New(conn, cfgClient, dlqStore, attemptsStore, logger)
 	if err := c.Start(ctx); err != nil {
 		logger.Error("failed to start consumer", "err", err)
 		os.Exit(1)
 	}
 
-	// Health endpoint
+	dlqHandler := dlqhandler.New(dlqStore, conn, logger)
+	metricsHandler := metricshandler.New(pool, logger)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, `{"status":"ok"}`)
 	})
 	mux.HandleFunc("/internal/test-destination", testhandler.Handler)
+	mux.Handle("/dlq", dlqHandler)
+	mux.Handle("/dlq/", dlqHandler)
+	mux.Handle("/error-rate", metricsHandler)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("0.0.0.0:%d", cfg.Port),
@@ -81,7 +99,7 @@ func main() {
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
-	srv.Shutdown(shutdownCtx)
+	srv.Shutdown(shutdownCtx) //nolint:errcheck
 }
 
 func connectRabbitMQ(url string, logger *slog.Logger) (*amqp.Connection, error) {

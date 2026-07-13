@@ -12,13 +12,14 @@ import {
 export class IngestEventDto {
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/, {
-    message: 'event must be dot notation lowercase, e.g. "order.created"',
+  @Matches(/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, {
+    message: 'event must be dot notation lowercase, e.g. "product.added_to_cart"',
   })
   event!: string
 
   @IsUUID('4')
-  correlationId!: string
+  @IsOptional()
+  correlationId?: string
 
   @IsUUID('4')
   @IsOptional()

@@ -17,6 +17,8 @@ import Joi from 'joi'
         AUTH_SERVICE_URL: Joi.string().required(),
         PIPELINE_SERVICE_URL: Joi.string().required(),
         ANALYTICS_SERVICE_URL: Joi.string().required(),
+        DELIVERY_SERVICE_URL: Joi.string().required(),
+        ALERT_SERVICE_URL: Joi.string().default('http://localhost:3007'),
         RATE_LIMIT_INGEST_RPM: Joi.number().default(1000),
         RATE_LIMIT_MGMT_RPM: Joi.number().default(100),
       }),

@@ -33,6 +33,7 @@ COPY apps/auth/package.json           ./apps/auth/
 COPY apps/config-service/package.json ./apps/config-service/
 COPY apps/api-gateway/package.json    ./apps/api-gateway/
 COPY apps/analytics/package.json      ./apps/analytics/
+COPY apps/alert/package.json          ./apps/alert/
 
 RUN pnpm install --frozen-lockfile
 
@@ -79,6 +80,7 @@ COPY --from=deps /app/apps/auth/package.json           ./apps/auth/
 COPY --from=deps /app/apps/config-service/package.json ./apps/config-service/
 COPY --from=deps /app/apps/api-gateway/package.json    ./apps/api-gateway/
 COPY --from=deps /app/apps/analytics/package.json      ./apps/analytics/
+COPY --from=deps /app/apps/alert/package.json          ./apps/alert/
 
 RUN pnpm install --frozen-lockfile --prod
 

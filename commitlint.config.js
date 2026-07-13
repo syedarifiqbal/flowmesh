@@ -16,6 +16,7 @@ module.exports = {
         'config',
         'gateway',
         'dashboard',
+        'sdk-node',
         // shared / infra
         'shared-common',
         'shared-types',

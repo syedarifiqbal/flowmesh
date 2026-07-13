@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AlertRule {
+  id             String    @id @default(uuid())
+  workspaceId    String    @map("workspace_id")
+  name           String
+  description    String?
+  enabled        Boolean   @default(true)
+
+  // Condition: what event and property to watch
+  conditionType  String    @map("condition_type")   // "any_event" | "property_equals"
+  eventName      String?   @map("event_name")       // if null, matches all events
+  propertyPath   String?   @map("property_path")    // dot-notation into properties (for property_equals)
+  propertyValue  String?   @map("property_value")   // expected value (for property_equals)
+
+  // Count threshold fields (conditionType = "count_threshold")
+  thresholdCount Int?      @map("threshold_count")  // fire when event count >= this
+  windowSeconds  Int?      @map("window_seconds")   // rolling window size in seconds
+
+  // Notification destination
+  channel        String                              // "slack" | "webhook" | "email"
+  webhookUrl     String?   @map("webhook_url")
+  slackWebhookUrl String?  @map("slack_webhook_url")
+  recipientEmail String?   @map("recipient_email")
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  history        AlertHistory[]
+
+  @@index([workspaceId, enabled])
+  @@index([workspaceId, eventName])
+  @@map("alert_rules")
+}
+
+model AlertHistory {
+  id                 String    @id @default(uuid())
+  workspaceId        String    @map("workspace_id")
+  ruleId             String    @map("rule_id")
+  triggeredAt        DateTime  @default(now()) @map("triggered_at")
+  eventId            String?   @map("event_id")   // the event that triggered the alert
+  eventName          String?   @map("event_name")
+  eventPayload       Json      @default("{}") @map("event_payload")
+  notificationStatus String    @map("notification_status")  // "sent" | "failed"
+  notificationError  String?   @map("notification_error")
+
+  rule               AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, triggeredAt(sort: Desc)])
+  @@index([ruleId])
+  @@map("alert_history")
+}

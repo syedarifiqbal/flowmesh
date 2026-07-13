@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -41,6 +44,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		testErr = testWebhook(ctx, req.Config)
 	case "postgres":
 		testErr = testPostgres(ctx, req.Config)
+	case "slack", "discord":
+		testErr = testWebhookURL(ctx, req.Config)
+	case "s3":
+		testErr = testS3(ctx, req.Config)
 	default:
 		writeResponse(w, http.StatusBadRequest, response{Ok: false, Error: fmt.Sprintf("unsupported destination type: %s", req.Type)})
 		return
@@ -53,7 +60,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	writeResponse(w, http.StatusOK, response{Ok: true})
 }
 
-func testWebhook(ctx context.Context, config map[string]any) error {
+// testWebhookURL verifies that the configured URL is reachable.
+// Used for Slack and Discord where we cannot send a real event payload during a test.
+// Any non-5xx response means the URL accepted the connection and the credentials are likely valid.
+func testWebhookURL(ctx context.Context, config map[string]any) error {
 	url, ok := config["url"].(string)
 	if !ok || url == "" {
 		return fmt.Errorf("missing url in config")
@@ -75,9 +85,13 @@ func testWebhook(ctx context.Context, config map[string]any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 500 {
-		return fmt.Errorf("webhook returned %d — server error", resp.StatusCode)
+		return fmt.Errorf("server returned %d — check your webhook URL", resp.StatusCode)
 	}
 	return nil
+}
+
+func testWebhook(ctx context.Context, config map[string]any) error {
+	return testWebhookURL(ctx, config)
 }
 
 func testPostgres(ctx context.Context, config map[string]any) error {
@@ -104,6 +118,44 @@ func testPostgres(ctx context.Context, config map[string]any) error {
 	}
 	if !exists {
 		return fmt.Errorf("table %q does not exist", table)
+	}
+
+	return nil
+}
+
+func testS3(ctx context.Context, config map[string]any) error {
+	bucket, ok := config["bucket"].(string)
+	if !ok || bucket == "" {
+		return fmt.Errorf("missing bucket in config")
+	}
+
+	region, ok := config["region"].(string)
+	if !ok || region == "" {
+		return fmt.Errorf("missing region in config")
+	}
+
+	accessKeyID, ok := config["accessKeyId"].(string)
+	if !ok || accessKeyID == "" {
+		return fmt.Errorf("missing accessKeyId in config")
+	}
+
+	secretAccessKey, ok := config["secretAccessKey"].(string)
+	if !ok || secretAccessKey == "" {
+		return fmt.Errorf("missing secretAccessKey in config")
+	}
+
+	creds := credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, "")
+	cfg := aws.Config{
+		Region:      region,
+		Credentials: creds,
+	}
+	client := s3.NewFromConfig(cfg)
+
+	_, err := client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		return fmt.Errorf("cannot access bucket %q — check credentials and region: %w", bucket, err)
 	}
 
 	return nil

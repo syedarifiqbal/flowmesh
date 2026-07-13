@@ -108,6 +108,10 @@ delivery-dev:
 delivery-build:
 	cd apps/delivery && go build -o dist/delivery .
 
+delivery-migrate:
+	docker exec -i flowmesh-postgres psql -U flowmesh -d flowmesh < apps/delivery/migrations/001_create_dead_letter_events.sql
+	docker exec -i flowmesh-postgres psql -U flowmesh -d flowmesh < apps/delivery/migrations/002_create_delivery_attempts.sql
+
 delivery-test:
 	cd apps/delivery && go test ./... -cover
 
@@ -154,6 +158,25 @@ auth-generate:
 gateway-dev:
 	pnpm --filter @flowmesh/api-gateway dev
 
+# ─── Alert service ───────────────────────────────────────────────────────────
+
+alert-dev:
+	pnpm --filter @flowmesh/alert prisma:generate
+	pnpm --filter @flowmesh/alert dev
+
+alert-migrate-create:
+	pnpm --filter @flowmesh/alert prisma:migrate:create
+
+alert-migrate:
+	pnpm --filter @flowmesh/alert prisma:migrate:deploy
+	pnpm --filter @flowmesh/alert prisma:generate
+
+alert-generate:
+	pnpm --filter @flowmesh/alert prisma:generate
+
+restart-alert:
+	$(COMPOSE) up -d --build alert
+
 # ─── Analytics service ───────────────────────────────────────────────────────
 
 analytics-dev:
@@ -183,6 +206,12 @@ test-watch:
 install:
 	pnpm install
 
+sdk-node-release:
+	@VERSION=$$(node -p "require('./packages/sdk-node/package.json').version"); \
+	TAG="sdk-node-v$$VERSION"; \
+	echo "Tagging $$TAG and pushing to origin..."; \
+	git tag "$$TAG" && git push origin "$$TAG" && echo "Published trigger: $$TAG"
+
 gen-jwt-secret:
 	@echo "JWT_SECRET=$$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
 	@echo "JWT_REFRESH_SECRET=$$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
@@ -207,10 +236,12 @@ env-setup:
 .PHONY: infra-up infra-down infra-logs infra-psql obs-up obs-down obs-logs grafana-open up down down-v logs \
         ingestion-dev ingestion-migrate-create ingestion-migrate ingestion-generate \
         pipeline-dev pipeline-migrate-create pipeline-migrate pipeline-generate \
-        delivery-dev delivery-build delivery-test delivery-test-race \
+        delivery-dev delivery-build delivery-migrate delivery-test delivery-test-race \
         config-dev config-migrate-create config-migrate config-generate gen-encryption-key \
         auth-dev auth-migrate-create auth-migrate auth-generate \
+        alert-dev alert-migrate-create alert-migrate alert-generate restart-alert \
         gateway-dev analytics-dev dashboard-dev \
         restart-gateway restart-ingestion restart-pipeline restart-delivery \
         restart-auth restart-config restart-analytics restart-dashboard \
-        test test-integration test-coverage test-watch install gen-jwt-secret env-setup
+        test test-integration test-coverage test-watch install gen-jwt-secret env-setup \
+        sdk-node-release

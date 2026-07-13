@@ -1,6 +1,7 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { isAuthenticated } from './lib/auth'
 import AppLayout from './components/layout/AppLayout'
+import PageErrorBoundary from './components/ui/PageErrorBoundary'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -11,6 +12,9 @@ import ExecutionDetailPage from './pages/executions/ExecutionDetailPage'
 import DestinationsPage from './pages/destinations/DestinationsPage'
 import ApiKeysPage from './pages/api-keys/ApiKeysPage'
 import SettingsPage from './pages/settings/SettingsPage'
+import DLQPage from './pages/dlq/DLQPage'
+import AlertsPage from './pages/alerts/AlertsPage'
+import PipelineBuilderPage from './pages/pipelines/builder/PipelineBuilderPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -18,6 +22,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
   return <>{children}</>
+}
+
+function ProtectedBuilder() {
+  const location = useLocation()
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />
+  }
+  return (
+    <PageErrorBoundary locationKey={location.key}>
+      <PipelineBuilderPage />
+    </PageErrorBoundary>
+  )
 }
 
 export default function AppRouter() {
@@ -40,8 +56,12 @@ export default function AppRouter() {
         <Route path="/executions/:id" element={<ExecutionDetailPage />} />
         <Route path="/destinations" element={<DestinationsPage />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
+        <Route path="/dlq" element={<DLQPage />} />
+        <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
+      {/* Full-screen builder — protected but outside AppLayout */}
+      <Route path="/pipelines/:id/builder" element={<ProtectedBuilder />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )

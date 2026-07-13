@@ -4,6 +4,7 @@ import { GitBranch, Key, ArrowRight, Zap, Share2, CheckCircle } from 'lucide-rea
 import type { Pipeline } from '@flowmesh/shared-types'
 import api from '../../lib/api'
 import ThroughputChart from '../../components/ui/ThroughputChart'
+import ErrorRateChart from '../../components/ui/ErrorRateChart'
 
 interface ApiKey {
   id: string
@@ -134,6 +135,11 @@ export default function DashboardPage() {
       </div>
 
       <ThroughputChart />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ThroughputChart />
+        <ErrorRateChart />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {!allDone && (

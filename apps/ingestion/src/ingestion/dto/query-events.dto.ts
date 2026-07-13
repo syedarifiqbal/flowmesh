@@ -28,6 +28,14 @@ export class QueryEventsDto {
   search?: string
 
   @IsOptional()
+  @IsString()
+  userId?: string
+
+  @IsOptional()
+  @IsString()
+  anonymousId?: string
+
+  @IsOptional()
   @IsIn(['receivedAt', 'eventName'])
   sortBy?: 'receivedAt' | 'eventName' = 'receivedAt'
 }
